@@ -239,6 +239,8 @@ export default function SupervisorApproval() {
                           <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
                           <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
                           <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>
+                          <p>Prepaid Names: {Array.isArray(submission.prepayments) ? submission.prepayments.map((p: any) => p.name).join(', ') : ''}</p>
+                          <p>Credit Names: {Array.isArray(submission.credits) ? submission.credits.map((c: any) => c.name).join(', ') : ''}</p>
                           <div className="flex items-center gap-2 mt-4">
                             <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
                               <Check className="w-4 h-4" /> Approve
@@ -254,7 +256,7 @@ export default function SupervisorApproval() {
                 </div>
                 <div>
                   <span className="font-semibold">Approved:</span>
-                  {groupedByDate[date][attendant]?.approved?.length === 0 ? (
+                  {groupedByDate[date][attendant].approved.length === 0 ? (
                     <span className="ml-2 text-gray-500">None</span>
                   ) : (
                     groupedByDate[date][attendant]?.approved?.map((submission: any) => (

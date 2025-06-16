@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
@@ -9,6 +9,7 @@ import { userAtom } from "../store/auth";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
+import * as XLSX from 'xlsx';
 
 const fetchSummaries = async (shift: string) => {
   // Fetch all shifts for the selected shift type
@@ -68,8 +69,9 @@ export default function ManagerDashboard() {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attendants] = useState<any[]>([]);
+  const [attendants, setAttendants] = useState<any[]>([]);
   const [selectedAttendant, setSelectedAttendant] = useState<string>("");
+  const [pumpMap, setPumpMap] = useState<Record<string, string>>({});
 
   const { data: summaries, isLoading, error: queryError } = useQuery({
     queryKey: ["manager", shift],
@@ -95,6 +97,30 @@ export default function ManagerDashboard() {
     };
     fetchRecords();
   }, [selectedDate]);
+
+  // Fetch pump names for mapping
+  useEffect(() => {
+    const fetchPumps = async () => {
+      const { data, error } = await supabase.from('pumps').select('id, name');
+      if (!error && data) {
+        const map: Record<string, string> = {};
+        data.forEach((p: any) => { map[p.id] = p.name; });
+        setPumpMap(map);
+      }
+    };
+    fetchPumps();
+  }, []);
+
+  // Fetch attendants for dropdown
+  useEffect(() => {
+    const fetchAttendants = async () => {
+      const { data, error } = await supabase.from('users').select('id, username').eq('role', 'attendant');
+      if (!error && data) {
+        setAttendants(data);
+      }
+    };
+    fetchAttendants();
+  }, []);
 
   // Logout function
   const handleLogout = async () => {
@@ -124,7 +150,7 @@ export default function ManagerDashboard() {
     ];
     const rows = filteredRecords.map((rec) => [
       rec.attendant?.username || rec.attendant_id,
-      rec.pump_id,
+      pumpMap[rec.pump_id] || rec.pump_id,
       rec.shift_type,
       rec.shift_date,
       rec.opening_reading,
@@ -146,8 +172,44 @@ export default function ManagerDashboard() {
     URL.revokeObjectURL(url);
   };
 
+  // Download XLS
+  const downloadXLS = () => {
+    const headers = [
+      "Attendant",
+      "Pump",
+      "Shift",
+      "Date",
+      "Opening (L)",
+      "Closing (L)",
+      "Cash",
+      "Prepaid",
+      "Credit",
+      "Expected (MWK)",
+      "Prepaid Names",
+      "Credit Names"
+    ];
+    const rows = filteredRecords.map((rec) => [
+      String(rec.attendant?.username || rec.attendant_id),
+      String(pumpMap[rec.pump_id] || rec.pump_id),
+      String(rec.shift_type),
+      rec.shift_date ? String(rec.shift_date) : '',
+      `'${rec.opening_reading}`,
+      `'${rec.closing_reading}`,
+      `'${rec.cash_received}`,
+      `'${rec.prepayments ? rec.prepayments.reduce((sum: number, p: { amount: any; }) => sum + Number(p.amount), 0) : rec.prepayment_received}`,
+      `'${rec.credits ? rec.credits.reduce((sum: number, c: { amount: any; }) => sum + Number(c.amount), 0) : rec.credit_received}`,
+      `'${(rec.closing_reading - rec.opening_reading) * (rec.fuel_price || 0)}`,
+      rec.prepayments ? rec.prepayments.map((p: { name: any; }) => p.name).join('; ') : '',
+      rec.credits ? rec.credits.map((c: { name: any; }) => c.name).join('; ') : ''
+    ]);
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Records");
+    XLSX.writeFile(workbook, `records_${selectedDate}.xls`, { bookType: 'xls' });
+  };
+
   // Simple bar graph for performance (total collected per attendant)
-  const graphData = (() => {
+  const graphData: [string, number][] = (() => {
     const map: Record<string, number> = {};
     filteredRecords.forEach((r) => {
       const name = r.attendant?.username || r.attendant_id;
@@ -174,10 +236,10 @@ export default function ManagerDashboard() {
     });
     // Convert to array of { date, [attendant1]: value, [attendant2]: value, ... }
     const dates = Object.keys(map).sort();
-    const attendants = Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id)));
+    const attendantsList = Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id)));
     return dates.map(date => {
       const row: any = { date };
-      attendants.forEach(a => { row[a] = map[date][a] || 0; });
+      attendantsList.forEach(a => { row[a] = map[date][a] || 0; });
       return row;
     });
   })();
@@ -230,6 +292,9 @@ export default function ManagerDashboard() {
         </select>
         <Button onClick={downloadCSV} className="ml-4">
           Download CSV
+        </Button>
+        <Button onClick={downloadXLS} className="ml-4">
+          Download XLS
         </Button>
       </div>
       {/* Simple bar graph */}
@@ -285,21 +350,26 @@ export default function ManagerDashboard() {
           {queryError && (
             <p className="text-red-600">Error loading summaries</p>
           )}
-          {summaries?.map((s: any) => (
-            <Card
-              key={s.attendantName}
-              onClick={() => setSelected(s.attendantName)}
-              className={cn(
-                "p-3 cursor-pointer",
-                selected === s.attendantName && "border-2 border-blue-500"
-              )}
-            >
-              <CardContent>{s.attendantName}</CardContent>
-            </Card>
-          ))}
+          {filteredRecords.length === 0 ? (
+            <p className="text-gray-500">No attendants for this day.</p>
+          ) : (
+            Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id))).map((attendantName) => (
+              <Card
+                key={attendantName}
+                onClick={() => setSelected(selected === attendantName ? null : attendantName)}
+                className={cn(
+                  "p-3 cursor-pointer",
+                  selected === attendantName && "border-2 border-blue-500"
+                )}
+              >
+                <CardContent>{attendantName}</CardContent>
+              </Card>
+            ))
+          )}
         </div>
+        {/* End attendants list */}
 
-        {attendant && (
+        {attendant && selected && (
           <div className="space-y-2">
             <h2 className="font-bold text-xl">
               Summary for {attendant.attendantName}
@@ -308,15 +378,15 @@ export default function ManagerDashboard() {
               <CardContent className="space-y-2">
                 <p>Shift: {attendant.shift}</p>
                 <p>Date: {attendant.date}</p>
-                <p>Opening Total: {attendant.openingTotal} MWK</p>
-                <p>Closing Total: {attendant.closingTotal} MWK</p>
-                <p>Expected Return: {attendant.expectedTotal} MWK</p>
-                <p>Cash Collected: {attendant.cashTotal} MWK</p>
+                <p>Opening Total: {attendant.openingTotal.toLocaleString()} MWK</p>
+                <p>Closing Total: {attendant.closingTotal.toLocaleString()} MWK</p>
+                <p>Expected Return: {attendant.expectedTotal.toLocaleString()} MWK</p>
+                <p>Cash Collected: {attendant.cashTotal.toLocaleString()} MWK</p>
                 <p>Prepaid:</p>
                 <ul className="ml-4 list-disc">
                   {attendant.prepaids.map((p: any, idx: number) => (
                     <li key={idx}>
-                      {p.name} - {p.amount} MWK
+                      {p.name} - {p.amount.toLocaleString()} MWK
                     </li>
                   ))}
                 </ul>
@@ -324,7 +394,7 @@ export default function ManagerDashboard() {
                 <ul className="ml-4 list-disc">
                   {attendant.credits.map((c: any, idx: number) => (
                     <li key={idx}>
-                      {c.name} - {c.amount} MWK
+                      {c.name} - {c.amount.toLocaleString()} MWK
                     </li>
                   ))}
                 </ul>
@@ -336,15 +406,14 @@ export default function ManagerDashboard() {
                   }
                 >
                   {attendant.difference >= 0
-                    ? `Overage: +${attendant.difference}`
-                    : `Shortage: ${attendant.difference}`}
+                    ? `Overage: +${attendant.difference.toLocaleString()}`
+                    : `Shortage: ${attendant.difference.toLocaleString()}`}
                 </p>
               </CardContent>
             </Card>
           </div>
         )}
       </div>
-
       <div className="mt-8">
         <h2 className="font-bold text-xl mb-4">Shift Records</h2>
         {loading ? (
@@ -363,22 +432,17 @@ export default function ManagerDashboard() {
                 <div className="font-semibold">
                   Attendant: {rec.attendant?.username || rec.attendant_id}
                 </div>
-                <div>Pump: {rec.pump_id}</div>
+                <div>Pump: {pumpMap[rec.pump_id] || rec.pump_id}</div>
                 <div>Shift: {rec.shift_type}</div>
                 <div>Date: {rec.shift_date}</div>
                 <div>
-                  Opening: {rec.opening_reading} | Closing:{" "}
-                  {rec.closing_reading}
+                  Opening: {rec.opening_reading.toLocaleString()} | Closing: {rec.closing_reading.toLocaleString()}
                 </div>
                 <div>
-                  Cash: {rec.cash_received} | Prepaid:{" "}
-                  {rec.prepayment_received} | Credit: {rec.credit_received}
+                  Cash: {rec.cash_received.toLocaleString()} | Prepaid: {rec.prepayment_received.toLocaleString()} | Credit: {rec.credit_received.toLocaleString()}
                 </div>
                 <div>
-                  Expected:{" "}
-                  {(rec.closing_reading - rec.opening_reading) *
-                    (rec.fuel_price || 0)}{" "}
-                  MWK
+                  Expected: {((rec.closing_reading - rec.opening_reading) * (rec.fuel_price || 0)).toLocaleString()} MWK
                 </div>
               </div>
             ))}

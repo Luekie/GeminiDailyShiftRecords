@@ -77,8 +77,8 @@ const AttendantDashboard = () => {
         shift_type: shift,
         shift_date,
         cash_received: cash,
-        prepayment_received: prepayments.reduce((sum, p) => sum + Number(p.amount), 0),
-        credit_received: credits.reduce((sum, c) => sum + Number(c.amount), 0),
+        prepayments: prepayments,
+        credits: credits,
         attendant_id: user.id,
       };
       const { error } = await supabase.from('shifts').insert([row]);
@@ -215,6 +215,7 @@ const AttendantDashboard = () => {
                 </div>
               ))}
               <Button onClick={() => addEntry(prepayments, setPrepayments)}>+ Add Prepayment</Button>
+              {/* Save prepayments as array in DB */}
             </CardContent>
           </Card>
           <Card className="bg-white/80 shadow-md">
@@ -236,6 +237,7 @@ const AttendantDashboard = () => {
                 </div>
               ))}
               <Button onClick={() => addEntry(credits, setCredits)}>+ Add Credit</Button>
+              {/* Save credits as array in DB */}
             </CardContent>
           </Card>
           <div className="p-4 border rounded-lg space-y-2 bg-blue-50/80 shadow">
