@@ -8,6 +8,7 @@ import { useAtomValue } from "jotai";
 import { userAtom } from "../store/auth";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
 
 const fetchSummaries = async (shift: string) => {
   // Fetch all shifts for the selected shift type
@@ -159,6 +160,28 @@ export default function ManagerDashboard() {
     return Object.entries(map);
   })();
 
+  // Prepare sales data for graph (total collected per attendant per date)
+  const salesGraphData = (() => {
+    // Group by date, then sum per attendant
+    const map: Record<string, Record<string, number>> = {};
+    filteredRecords.forEach((r) => {
+      const date = r.shift_date;
+      const name = r.attendant?.username || r.attendant_id;
+      if (!map[date]) map[date] = {};
+      map[date][name] =
+        (map[date][name] || 0) +
+        (Number(r.cash_received) + Number(r.prepayment_received) + Number(r.credit_received));
+    });
+    // Convert to array of { date, [attendant1]: value, [attendant2]: value, ... }
+    const dates = Object.keys(map).sort();
+    const attendants = Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id)));
+    return dates.map(date => {
+      const row: any = { date };
+      attendants.forEach(a => { row[a] = map[date][a] || 0; });
+      return row;
+    });
+  })();
+
   const attendant = summaries?.find((s: any) => s.attendantName === selected);
 
   return (
@@ -218,17 +241,41 @@ export default function ManagerDashboard() {
           {graphData.length === 0 ? (
             <span className="text-gray-400">No data</span>
           ) : (
-            graphData.map(([name, value]) => (
-              <div key={name} className="flex flex-col items-center">
-                <div
-                  className="bg-blue-500 w-8"
-                  style={{ height: `${Math.max(10, value / 1000)}px` }}
-                  title={value.toLocaleString() + " MWK"}
-                ></div>
-                <span className="text-xs mt-1">{name}</span>
-              </div>
-            ))
+            (() => {
+              const maxValue = Math.max(...graphData.map(([, value]) => value));
+              const maxHeight = 140; // px, matches h-40
+              return graphData.map(([name, value]) => (
+                <div key={name} className="flex flex-col items-center">
+                  <div
+                    className="bg-blue-500 w-8 transition-all duration-300"
+                    style={{
+                      height: maxValue > 0 ? `${Math.max(10, (value / maxValue) * maxHeight)}px` : '10px',
+                    }}
+                    title={value.toLocaleString() + " MWK"}
+                  ></div>
+                  <span className="text-xs mt-1">{name}</span>
+                </div>
+              ));
+            })()
           )}
+        </div>
+      </div>
+      {/* Sales line graph */}
+      <div className="mb-4">
+        <h3 className="font-semibold mb-2">Sales Graph (Total Collected per Attendant per Date)</h3>
+        <div className="w-full h-64 bg-white rounded shadow p-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={salesGraphData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              {Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id))).map((a, idx) => (
+                <Line key={a} type="monotone" dataKey={a} stroke={`hsl(${(idx * 60) % 360}, 70%, 50%)`} strokeWidth={2} dot={false} />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
