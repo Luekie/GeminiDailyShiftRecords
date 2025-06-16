@@ -9,6 +9,7 @@ import { useAtomValue } from 'jotai';
 import type { AuthUser } from '../store/auth';
 import { userAtom } from '../store/auth';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
+import { useLocation } from 'wouter';
 
 const AttendantDashboard = () => {
   const user = useAtomValue(userAtom) as AuthUser | null;
@@ -22,6 +23,7 @@ const AttendantDashboard = () => {
   const [pumps, setPumps] = useState<any[]>([]);
   const [loadingPumps, setLoadingPumps] = useState(true);
   const [pumpError, setPumpError] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
 
   // Fetch pumps from Supabase
   useEffect(() => {
@@ -96,6 +98,13 @@ const AttendantDashboard = () => {
     },
   });
 
+  // Logout function
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setLocation("/");
+    window.location.reload();
+  };
+
   if (submitted) {
     return (
       <div className="p-8 text-center">
@@ -107,12 +116,21 @@ const AttendantDashboard = () => {
   }
 
   if (!user) {
-    return <div className="p-8 text-center text-red-600">You are not logged in. Please log in first.</div>;
+    setTimeout(() => setLocation("/"), 1000);
+    return <div className="p-8 text-center text-red-600">You are not logged in. Redirecting to login...</div>;
   }
 
   return (
-    <div className="p-4 space-y-4">
-      <h2 className="text-2xl font-bold mb-2">Welcome, {user.username}!</h2>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold mb-2">Welcome, {user.username}!</h2>
+        <Button
+          onClick={handleLogout}
+          className="bg-red-600 hover:bg-red-700 text-white"
+        >
+          Log Out
+        </Button>
+      </div>
       <div className="flex gap-4 items-center mb-4">
         <label className="font-semibold">Select Shift:</label>
         <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
@@ -140,7 +158,14 @@ const AttendantDashboard = () => {
       </div>
       {selectedPump && (
         <div className="space-y-4">
-          <Card>
+          <Button
+            variant="outline"
+            className="mb-2"
+            onClick={() => setSelectedPumpId(null)}
+          >
+            ← Back to Pump Selection
+          </Button>
+          <Card className="bg-white/80 shadow-md">
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">{selectedPump.name} ({selectedPump.type})</h3>
               <Input
@@ -160,7 +185,7 @@ const AttendantDashboard = () => {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white/80 shadow-md">
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">Cash Sales</h3>
               <Input
@@ -171,7 +196,7 @@ const AttendantDashboard = () => {
               />
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white/80 shadow-md">
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">Prepayments</h3>
               {prepayments.map((p, idx) => (
@@ -192,7 +217,7 @@ const AttendantDashboard = () => {
               <Button onClick={() => addEntry(prepayments, setPrepayments)}>+ Add Prepayment</Button>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white/80 shadow-md">
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">Credit Sales</h3>
               {credits.map((c, idx) => (
@@ -213,7 +238,7 @@ const AttendantDashboard = () => {
               <Button onClick={() => addEntry(credits, setCredits)}>+ Add Credit</Button>
             </CardContent>
           </Card>
-          <div className="p-4 border rounded-lg space-y-2">
+          <div className="p-4 border rounded-lg space-y-2 bg-blue-50/80 shadow">
             <h3 className="font-semibold text-xl">Summary</h3>
             {(() => {
               // Calculate expected amount from readings and pump price
