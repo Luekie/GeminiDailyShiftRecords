@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAtomValue } from 'jotai';
 import { userAtom } from '../store/auth';
 import { useLocation } from 'wouter';
+// import { usePreviousSubmissions } from "@/lib/usePreviousSubmissions";
 
 const fetchSubmissions = async () => {
   const { data, error } = await supabase
@@ -64,16 +65,15 @@ export default function SupervisorApproval() {
     queryKey: ["submissions"],
     queryFn: fetchSubmissions,
   });
-  const [modal, setModal] = useState<{ open: boolean; submission: Submission | null }>(
-    {
-      open: false,
-      submission: null,
-    }
-  );
+  const [modal, setModal] = useState<{ open: boolean; submission: Submission | null }>({
+    open: false,
+    submission: null,
+  });
   const [modalReason, setModalReason] = useState<string>("");
   const [pumpMap, setPumpMap] = useState<Record<string, string>>({});
   const [showPumpDetails, setShowPumpDetails] = useState<Submission | null>(null);
   const [notification, setNotification] = useState<string>("");
+  const [showPrevious, setShowPrevious] = useState<string | null>(null);
 
   // Fetch pump names for mapping
   useEffect(() => {
@@ -202,70 +202,84 @@ export default function SupervisorApproval() {
         </div>
       )}
       {/* Grouped by date, then by attendant, then by approval status */}
-      {Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a)).map(date => (
-        <div key={date} className="mb-6">
-          <h3 className="font-bold text-lg mb-2">Date: {date}</h3>
-          {Object.keys(groupedByDate[date]).map(attendant => (
-            <div key={attendant} className="mb-4 ml-4">
-              <h4 className="font-semibold text-md mb-1">Attendant: {attendant}</h4>
-              <div className="mb-2">
-                <span className="font-semibold">Pending:</span>
-                {groupedByDate[date][attendant].pending.length === 0 ? (
-                  <span className="ml-2 text-gray-500">None</span>
-                ) : (
-                  groupedByDate[date][attendant].pending.map((submission: any) => (
-                    <Card key={submission.id} className="bg-white shadow p-4 my-2">
-                      <CardContent>
-                        <p className="text-lg font-bold">
-                          Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}
-                        </p>
-                        <p>Shift: {submission.shift_type}</p>
-                        <p className="mt-2 font-medium">
-                          Cash: <span className="font-bold">{submission.cash_received} MWK</span>
-                        </p>
-                        <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
-                        <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
-                        <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>
-                        <div className="flex items-center gap-2 mt-4">
-                          <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
-                            <Check className="w-4 h-4" /> Approve
-                          </Button>
-                          <Button onClick={() => setModal({ open: true, submission })} className="bg-red-600 hover:bg-red-700 text-white">
-                            <X className="w-4 h-4" /> Request Fix
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-              <div>
-                <span className="font-semibold">Approved:</span>
-                {groupedByDate[date][attendant]?.approved?.length === 0 ? (
-                  <span className="ml-2 text-gray-500">None</span>
-                ) : (
-                  groupedByDate[date][attendant]?.approved?.map((submission: any) => (
-                    <Card key={submission.id} className="bg-green-50 shadow p-4 my-2">
-                      <CardContent>
-                        <p className="text-lg font-bold">
-                          Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}
-                        </p>
-                        <p>Shift: {submission.shift_type}</p>
-                        <p className="mt-2 font-medium">
-                          Cash: <span className="font-bold">{submission.cash_received} MWK</span>
-                        </p>
-                        <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
-                        <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
-                        <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
+      {Object.keys(groupedByDate).length === 0 ? (
+        <div className="text-center text-gray-500 text-lg mt-12">No shift submissions to review at this time.</div>
+      ) : (
+        Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a)).map(date => (
+          <div key={date} className="mb-6">
+            <div className="flex items-center gap-4 mb-2">
+              <h3 className="font-bold text-lg">Date: {date}</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPrevious(showPrevious === date ? null : date)}
+              >
+                {showPrevious === date ? "Hide" : "Show"} Previous Submissions
+              </Button>
             </div>
-          ))}
-        </div>
-      ))}
+            {/* {showPrevious === date && <PreviousSubmissions date={date} pumpMap={pumpMap} />} */}
+            {Object.keys(groupedByDate[date]).map(attendant => (
+              <div key={attendant} className="mb-4 ml-4">
+                <h4 className="font-semibold text-md mb-1">Attendant: {attendant}</h4>
+                <div className="mb-2">
+                  <span className="font-semibold">Pending:</span>
+                  {groupedByDate[date][attendant].pending.length === 0 ? (
+                    <span className="ml-2 text-gray-500">None</span>
+                  ) : (
+                    groupedByDate[date][attendant].pending.map((submission: any) => (
+                      <Card key={submission.id} className="bg-white shadow p-4 my-2">
+                        <CardContent>
+                          <p className="text-lg font-bold">
+                            Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}
+                          </p>
+                          <p>Shift: {submission.shift_type}</p>
+                          <p className="mt-2 font-medium">
+                            Cash: <span className="font-bold">{submission.cash_received} MWK</span>
+                          </p>
+                          <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
+                          <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
+                          <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>
+                          <div className="flex items-center gap-2 mt-4">
+                            <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
+                              <Check className="w-4 h-4" /> Approve
+                            </Button>
+                            <Button onClick={() => setModal({ open: true, submission })} className="bg-red-600 hover:bg-red-700 text-white">
+                              <X className="w-4 h-4" /> Request Fix
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+                <div>
+                  <span className="font-semibold">Approved:</span>
+                  {groupedByDate[date][attendant]?.approved?.length === 0 ? (
+                    <span className="ml-2 text-gray-500">None</span>
+                  ) : (
+                    groupedByDate[date][attendant]?.approved?.map((submission: any) => (
+                      <Card key={submission.id} className="bg-green-50 shadow p-4 my-2">
+                        <CardContent>
+                          <p className="text-lg font-bold">
+                            Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}
+                          </p>
+                          <p>Shift: {submission.shift_type}</p>
+                          <p className="mt-2 font-medium">
+                            Cash: <span className="font-bold">{submission.cash_received} MWK</span>
+                          </p>
+                          <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
+                          <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
+                          <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))
+      )}
     </div>
   );
 }
