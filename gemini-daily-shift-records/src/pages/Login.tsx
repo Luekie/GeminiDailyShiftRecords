@@ -72,6 +72,14 @@ export default function LoginPage() {
         >
           Login
         </button>
+        <div className="pb-2">
+          <br />
+          
+          
+          attendant name:lusekero password:pass124<br />
+          supervisor name:denis password:pass125<br />
+          manager: name: arnold password:pass123
+        </div>
       </div>
     </Layout>
   );
