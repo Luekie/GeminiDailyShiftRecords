@@ -4,19 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { useAtomValue } from 'jotai';
-import { userAtom } from '../store/auth';
-import { useLocation } from 'wouter';
-// import { usePreviousSubmissions } from "@/lib/usePreviousSubmissions";
+import { useAtomValue } from "jotai";
+import { userAtom } from "../store/auth";
+import { useLocation } from "wouter";
+import { PreviousSubmissions } from "./PreviousSubmissions";
 
 const fetchSubmissions = async () => {
   const { data, error } = await supabase
-    .from("shifts")
-    .select("*, attendant:attendant_id(username)")
-    .eq("is_approved", false)
-    .order("shift_date", { ascending: false });
-  if (error) throw error;
-  return data;
+    .from("submissions") // Ensure the table name is correct
+    .select("*"); // Ensure the query is valid
+
+  if (error) {
+    console.error("Error fetching submissions:", error.message);
+    throw error;
+  }
+  return data ?? [];
 };
 
 const approveSubmission = async (id: string) => {
@@ -43,6 +45,7 @@ export default function SupervisorApproval() {
   const user = useAtomValue(userAtom);
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+
   type Submission = {
     id: string;
     shift_date: string;
@@ -60,28 +63,31 @@ export default function SupervisorApproval() {
     credit_received: number;
     fix_reason?: string;
   };
-  
+
   const { data: submissions = [], isLoading, error } = useQuery<Submission[]>({
     queryKey: ["submissions"],
     queryFn: fetchSubmissions,
   });
+
   const [modal, setModal] = useState<{ open: boolean; submission: Submission | null }>({
     open: false,
     submission: null,
   });
   const [modalReason, setModalReason] = useState<string>("");
   const [pumpMap, setPumpMap] = useState<Record<string, string>>({});
-  const [showPumpDetails, setShowPumpDetails] = useState<Submission | null>(null);
+  // Removed unused showPumpDetails state
   const [notification, setNotification] = useState<string>("");
   const [showPrevious, setShowPrevious] = useState<string | null>(null);
 
   // Fetch pump names for mapping
   useEffect(() => {
     const fetchPumps = async () => {
-      const { data, error } = await supabase.from('pumps').select('id, name');
+      const { data, error } = await supabase.from("pumps").select("id, name");
       if (!error && data) {
         const map: Record<string, string> = {};
-        data.forEach((p: any) => { map[p.id] = p.name; });
+        data.forEach((p: any) => {
+          map[p.id] = p.name;
+        });
         setPumpMap(map);
       }
     };
@@ -99,14 +105,10 @@ export default function SupervisorApproval() {
 
   const request = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      // Update shift with fix_reason
       await requestFix({ id, reason });
-      // Notify attendant (simulate notification)
       setNotification("Attendant notified to fix submission.");
       setTimeout(() => setNotification(""), 2000);
-      // Find and show pump details
-      const submission = (submissions ?? []).find((s: any) => s.id === id) ?? null;
-      setShowPumpDetails(submission);
+      // Removed setShowPumpDetails as it's unused
       return true;
     },
     onSuccess: () => {
@@ -116,7 +118,6 @@ export default function SupervisorApproval() {
     },
   });
 
-  // Logout function
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setLocation("/");
@@ -126,7 +127,6 @@ export default function SupervisorApproval() {
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p className="text-red-600">Error loading submissions</p>;
 
-  // Group submissions by date, then by attendant, then by approval status
   const groupedByDate: Record<string, Record<string, { approved: any[]; pending: any[] }>> = {};
   (submissions || []).forEach((sub: any) => {
     const date = sub.shift_date;
@@ -138,33 +138,33 @@ export default function SupervisorApproval() {
   });
 
   return (
-    <div className="grid gap-4 p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">
-          Welcome, {user?.username || "Supervisor"}!
-        </h2>
-        <Button
-          onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white"
-        >
+    <div
+      className="min-h-screen p-4"
+      style={{
+        backgroundImage: 'url("/puma.jpg")',
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        fontFamily: "San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+        color: "#111",
+      }}
+    >
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4" style={{ borderBottom: "1px solid #d1d1d6", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
+        <h2 className="text-2xl font-bold">Welcome, {user?.username || "Supervisor"}!</h2>
+        <Button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white" style={{ borderRadius: 8, fontWeight: 600 }}>
           Log Out
         </Button>
       </div>
-      {notification && (
-        <div className="bg-green-100 text-green-800 p-2 rounded mb-2 text-center">{notification}</div>
-      )}
-      {/* Modal for request fix */}
+
+      {/* Notification */}
+      {notification && <div className="bg-green-100 text-green-800 p-2 rounded mb-2 text-center">{notification}</div>}
+
+      {/* Modal */}
       {modal.open && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-            <h2 className="text-lg font-bold mb-2">
-              Request Fix for{" "}
-              {modal.submission ? (modal.submission.attendant?.username || modal.submission.attendant_id) : ""} - Pump{" "}
-              {modal.submission ? (pumpMap[modal.submission.pump_id] || modal.submission.pump_id || modal.submission.pump) : "?"}
-            </h2>
-            <p className="mb-2">
-              Shift: {modal.submission?.shift_type} | Date: {modal.submission?.shift_date}
-            </p>
+            <h2 className="text-lg font-bold mb-2">Request Fix for {modal.submission?.attendant?.username || modal.submission?.attendant_id}</h2>
             <textarea
               className="w-full border rounded p-2 mb-4"
               rows={3}
@@ -187,38 +187,24 @@ export default function SupervisorApproval() {
           </div>
         </div>
       )}
-      {/* Show pump details after request fix */}
-      {showPumpDetails && (
-        <div className="bg-white border rounded shadow p-4 mb-4">
-          <h3 className="font-bold mb-2">Pump Details</h3>
-          <p>Attendant: {showPumpDetails.attendant?.username || showPumpDetails.attendant_id}</p>
-          <p>Pump: {pumpMap[showPumpDetails.pump_id] || showPumpDetails.pump_id}</p>
-          <p>Shift: {showPumpDetails.shift_type}</p>
-          <p>Date: {showPumpDetails.shift_date}</p>
-          <p>Opening: {showPumpDetails.opening_reading} | Closing: {showPumpDetails.closing_reading}</p>
-          <p>Cash: {showPumpDetails.cash_received} | Prepaid: {showPumpDetails.prepayment_received} | Credit: {showPumpDetails.credit_received}</p>
-          <p>Expected: {(showPumpDetails.closing_reading - showPumpDetails.opening_reading) * (showPumpDetails.fuel_price || 0)} MWK</p>
-          <Button className="mt-2" onClick={() => setShowPumpDetails(null)}>Close</Button>
-        </div>
-      )}
-      {/* Grouped by date, then by attendant, then by approval status */}
+
+      {/* Previous Submissions */}
+      <div className="flex items-center gap-4 mb-6">
+        <h3 className="font-bold text-lg" style={{ color: "#111" }}>Previous Submissions</h3>
+        <input type="date" value={showPrevious || ""} onChange={(e) => setShowPrevious(e.target.value)} className="border rounded px-2 py-1" />
+        <Button variant="outline" size="sm" onClick={() => setShowPrevious(showPrevious ? "" : new Date().toISOString().slice(0, 10))}>
+          {showPrevious ? "Hide" : "Show"} Previous Submissions
+        </Button>
+      </div>
+      {showPrevious && <PreviousSubmissions date={showPrevious} pumpMap={pumpMap} />}
+
+      {/* Grouped Submissions */}
       {Object.keys(groupedByDate).length === 0 ? (
         <div className="text-center text-gray-500 text-lg mt-12">No shift submissions to review at this time.</div>
       ) : (
-        Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a)).map(date => (
+        Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a)).map((date) => (
           <div key={date} className="mb-6">
-            <div className="flex items-center gap-4 mb-2">
-              <h3 className="font-bold text-lg">Date: {date}</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPrevious(showPrevious === date ? null : date)}
-              >
-                {showPrevious === date ? "Hide" : "Show"} Previous Submissions
-              </Button>
-            </div>
-            {/* {showPrevious === date && <PreviousSubmissions date={date} pumpMap={pumpMap} />} */}
-            {Object.keys(groupedByDate[date]).map(attendant => (
+            {Object.keys(groupedByDate[date]).map((attendant) => (
               <div key={attendant} className="mb-4 ml-4">
                 <h4 className="font-semibold text-md mb-1">Attendant: {attendant}</h4>
                 <div className="mb-2">
@@ -227,20 +213,14 @@ export default function SupervisorApproval() {
                     <span className="ml-2 text-gray-500">None</span>
                   ) : (
                     groupedByDate[date][attendant].pending.map((submission: any) => (
-                      <Card key={submission.id} className="bg-white shadow p-4 my-2">
-                        <CardContent>
-                          <p className="text-lg font-bold">
-                            Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}
-                          </p>
+                      <Card key={submission.id} className="bg-white/80 shadow-md" style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}>
+                        <CardContent className="space-y-2 p-4" style={{ background: "#fff", borderRadius: 10 }}>
+                          <p className="text-lg font-bold">Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}</p>
                           <p>Shift: {submission.shift_type}</p>
-                          <p className="mt-2 font-medium">
-                            Cash: <span className="font-bold">{submission.cash_received} MWK</span>
-                          </p>
+                          <p className="mt-2 font-medium">Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
                           <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
                           <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
                           <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>
-                          <p>Prepaid Names: {Array.isArray(submission.prepayments) ? submission.prepayments.map((p: any) => p.name).join(', ') : ''}</p>
-                          <p>Credit Names: {Array.isArray(submission.credits) ? submission.credits.map((c: any) => c.name).join(', ') : ''}</p>
                           <div className="flex items-center gap-2 mt-4">
                             <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
                               <Check className="w-4 h-4" /> Approve
@@ -262,13 +242,9 @@ export default function SupervisorApproval() {
                     groupedByDate[date][attendant]?.approved?.map((submission: any) => (
                       <Card key={submission.id} className="bg-green-50 shadow p-4 my-2">
                         <CardContent>
-                          <p className="text-lg font-bold">
-                            Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}
-                          </p>
+                          <p className="text-lg font-bold">Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}</p>
                           <p>Shift: {submission.shift_type}</p>
-                          <p className="mt-2 font-medium">
-                            Cash: <span className="font-bold">{submission.cash_received} MWK</span>
-                          </p>
+                          <p className="mt-2 font-medium">Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
                           <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
                           <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
                           <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>

@@ -1,31 +1,80 @@
-import  { useState, useEffect, type SetStateAction } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useMutation } from '@tanstack/react-query';
-import { useAtomValue } from 'jotai';
-import type { AuthUser } from '../store/auth';
+import { useAtom } from 'jotai';
 import { userAtom } from '../store/auth';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { useLocation } from 'wouter';
 
 const AttendantDashboard = () => {
-  const user = useAtomValue(userAtom) as AuthUser | null;
+  const [user, setUser] = useAtom(userAtom);
+  const [, setLocation] = useLocation();
+  const [loading, setLoading] = useState(true);
+
   const [shift, setShift] = useState<'day' | 'night'>('day');
-  const [selectedPumpId, setSelectedPumpId] = useState<string | null>(null); // Use string for UUID
+  const [selectedPumpId, setSelectedPumpId] = useState<string>("");
   const [reading, setReading] = useState({ opening: 0, closing: 0 });
-  const [cash, setCash] = useState(0);
-  const [prepayments, setPrepayments] = useState([{ name: '', amount: 0 }]);
-  const [credits, setCredits] = useState([{ name: '', amount: 0 }]);
+  const [cash, setCash] = useState('');
+  const [prepayments, setPrepayments] = useState([{ name: '', amount: '' }]);
+  const [credits, setCredits] = useState([{ name: '', amount: '' }]);
+  const [myFuelCards, setMyFuelCards] = useState([{ name: '', amount: '' }]);
+  const [fdhCards, setFdhCards] = useState([{ name: '', amount: '' }]);
+  const [nationalBankCards, setNationalBankCards] = useState([{ name: '', amount: '' }]);
   const [submitted, setSubmitted] = useState(false);
   const [pumps, setPumps] = useState<any[]>([]);
   const [loadingPumps, setLoadingPumps] = useState(true);
   const [pumpError, setPumpError] = useState<string | null>(null);
-  const [, setLocation] = useLocation();
 
-  // Fetch pumps from Supabase
+  const selectedPump = pumps.find(p => String(p.id) === selectedPumpId);
+
+  function updateList<T extends { [key: string]: any }>(
+    list: T[],
+    setList: (val: T[]) => void,
+    idx: number,
+    field: string,
+    value: any
+  ) {
+    const newList = [...list];
+    newList[idx] = { ...newList[idx], [field]: value };
+    setList(newList);
+  }
+
+  function addEntry<T extends { name: string; amount: string }>(list: T[], setList: (val: T[]) => void) {
+    setList([...list, { name: '', amount: '' } as T]);
+  }
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    const sessionExpiry = localStorage.getItem('sessionExpiry');
+
+    if (savedUser && sessionExpiry) {
+      const expiryTime = parseInt(sessionExpiry, 10);
+      const currentTime = Date.now();
+
+      if (currentTime < expiryTime) {
+        setUser(JSON.parse(savedUser));
+        setLoading(false);
+      } else {
+        localStorage.removeItem('user');
+        localStorage.removeItem('sessionExpiry');
+        setUser(null);
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
+    }
+  }, [setUser]);
+
+  useEffect(() => {
+    if (!user && !loading) {
+      setTimeout(() => setLocation("/"), 1000);
+    }
+  }, [user, loading, setLocation]);
+
   useEffect(() => {
     const fetchPumps = async () => {
       setLoadingPumps(true);
@@ -42,132 +91,143 @@ const AttendantDashboard = () => {
     fetchPumps();
   }, []);
 
-  const selectedPump = pumps.find(p => String(p.id) === selectedPumpId);
-  const expected = selectedPump ? (reading.closing - reading.opening) * selectedPump.price : 0;
-
-  const updateList = (
-    list: { name: string; amount: number; }[],
-    setList: React.Dispatch<SetStateAction<{ name: string; amount: number; }[]>>,
-    index: number,
-    field: 'name' | 'amount',
-    value: string
-  ) => {
-    const updated = [...list];
-    if (field === 'amount') {
-      updated[index].amount = parseFloat(value);
-    } else {
-      updated[index].name = value;
-    }
-    setList(updated);
-  };
-
-  const addEntry = (list: { name: string; amount: number; }[], setList: { (value: SetStateAction<{ name: string; amount: number; }[]>): void; }) => {
-    setList([...list, { name: '', amount: 0 }]);
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('sessionExpiry');
+    setUser(null);
+    setLocation('/');
   };
 
   const submitShift = useMutation({
     mutationFn: async () => {
-      if (!user || !selectedPump) throw new Error('Please select a pump and fill all fields');
-      const shift_date = new Date().toISOString().slice(0, 10);
-      const row = {
-        pump_id: selectedPump.id, // This is now a UUID
-        opening_reading: reading.opening,
-        closing_reading: reading.closing,
-        fuel_price: selectedPump.price,
-        shift_type: shift,
-        shift_date,
-        cash_received: cash,
-        prepayments: prepayments,
-        credits: credits,
-        attendant_id: user.id,
+      if (!selectedPump) throw new Error('No pump selected');
+      if (!user) throw new Error('User not logged in');
+      const payload = {
+        user_id: user.id,
+        shift,
+        pump_id: selectedPump.id,
+        reading_opening: reading.opening,
+        reading_closing: reading.closing,
+        cash: Number(cash) || 0,
+        prepayments: prepayments.map(p => ({ ...p, amount: Number(p.amount) || 0 })),
+        credits: credits.map(c => ({ ...c, amount: Number(c.amount) || 0 })),
+        my_fuel_cards: myFuelCards.map(c => ({ ...c, amount: Number(c.amount) || 0 })),
+        fdh_cards: fdhCards.map(c => ({ ...c, amount: Number(c.amount) || 0 })),
+        national_bank_cards: nationalBankCards.map(c => ({ ...c, amount: Number(c.amount) || 0 })),
+        submitted_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from('shifts').insert([row]);
+      const { error } = await supabase.from('shift_records').insert([payload]);
       if (error) throw error;
+      return true;
     },
     onSuccess: () => {
       setSubmitted(true);
-      // Reset form for new entry
-      setSelectedPumpId(null);
+      setSelectedPumpId("");
       setReading({ opening: 0, closing: 0 });
-      setCash(0);
-      setPrepayments([{ name: '', amount: 0 }]);
-      setCredits([{ name: '', amount: 0 }]);
+      setCash('');
+      setPrepayments([{ name: '', amount: '' }]);
+      setCredits([{ name: '', amount: '' }]);
+      setMyFuelCards([{ name: '', amount: '' }]);
+      setFdhCards([{ name: '', amount: '' }]);
+      setNationalBankCards([{ name: '', amount: '' }]);
     },
     onError: (err: any) => {
-      alert('Error submitting shift: ' + err.message);
-    },
+      alert('Failed to submit shift: ' + (err?.message || err));
+    }
   });
+  useEffect(() => {
+    if (submitted) {
+      setTimeout(() => {
+        setSubmitted(false);
+        setLocation('/attendant');
+      }, 2000);
+    }
+  }, [submitted, setLocation]);
 
-  // Logout function
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setLocation("/");
-    window.location.reload();
-  };
-
-  if (submitted) {
-    return (
-      <div className="p-8 text-center">
-        <h2 className="text-2xl font-bold mb-4">Shift Submitted!</h2>
-        <p className="mb-4">Your shift has been submitted and is awaiting supervisor approval.</p>
-        <Button className="mt-4" onClick={() => setSubmitted(false)}>Submit Another Pump</Button>
-      </div>
-    );
-  }
-
-  if (!user) {
-    setTimeout(() => setLocation("/"), 1000);
-    return <div className="p-8 text-center text-red-600">You are not logged in. Redirecting to login...</div>;
+  function handleSaveDraft(_event: React.MouseEvent<HTMLButtonElement>): void {
+    throw new Error('Function not implemented.');
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold mb-2">Welcome, {user.username}!</h2>
+    <div className="min-h-screen p-4" style={{
+       backgroundImage: 'url("/puma.jpg")', // Replace with your image path
+    backgroundSize: 'cover', // Ensures the image covers the entire screen
+    backgroundPosition: 'center', // Centers the image
+    backgroundRepeat: 'no-repeat',
+      
+      fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+      color: '#111',
+    }}>
+      <div className="flex justify-between items-center mb-4" style={{
+        borderBottom: '1px solid #d1d1d6',
+        paddingBottom: '0.5rem',
+        marginBottom: '1.5rem',
+      }}>
+        <h2 className="text-2xl font-bold mb-2">
+          Welcome, {user ? user.username : 'Guest'}!
+        </h2>
         <Button
           onClick={handleLogout}
           className="bg-red-600 hover:bg-red-700 text-white"
+          style={{ borderRadius: 8, fontWeight: 600 }}
         >
           Log Out
         </Button>
       </div>
       <div className="flex gap-4 items-center mb-4">
-        <label className="font-semibold">Select Shift:</label>
+        <label className="font-semibold" style={{ color: '#222' }}>Select Shift:</label>
         <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
-          <SelectTrigger className="w-32">{shift.toUpperCase()} Shift</SelectTrigger>
+          <SelectTrigger className="w-32 bg-white/50 ">{shift.toUpperCase()} Shift</SelectTrigger>
           <SelectContent>
             <SelectItem value="day">Day</SelectItem>
             <SelectItem value="night">Night</SelectItem>
           </SelectContent>
         </Select>
-        <label className="font-semibold ml-8">Select Pump:</label>
+        <label className="font-semibold ml-8" style={{ color: '#222' }}>
+          Select Pump:
+        </label>
         {loadingPumps ? (
-          <span className="ml-2">Loading pumps...</span>
+          <p>Loading pumps...</p>
         ) : pumpError ? (
-          <span className="ml-2 text-red-600">{pumpError}</span>
+          <p className="text-red-600">{pumpError}</p>
         ) : (
-          <Select value={selectedPumpId || ""} onValueChange={val => setSelectedPumpId(val)}>
-            <SelectTrigger className="w-40">{selectedPump ? selectedPump.name : "Select Pump"}</SelectTrigger>
+          <Select value={selectedPumpId} onValueChange={setSelectedPumpId}>
+            <SelectTrigger className="w-64 bg-white/50" style={{ borderRadius: 8, border: '1px solid #e5e5ea', color: "black" }}>
+              {selectedPumpId
+                ? pumps.find(p => String(p.id) === selectedPumpId)?.name
+                : 'Choose a pump'}
+            </SelectTrigger>
             <SelectContent>
               {pumps.map(p => (
-                <SelectItem key={String(p.id)} value={String(p.id)}>{p.name}</SelectItem>
+                <SelectItem key={String(p.id)} value={String(p.id)}>
+                  {p.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         )}
       </div>
       {selectedPump && (
-        <div className="space-y-4">
-          <Button
-            variant="outline"
-            className="mb-2"
-            onClick={() => setSelectedPumpId(null)}
-          >
-            ← Back to Pump Selection
-          </Button>
-          <Card className="bg-white/80 shadow-md">
+        <div className="space-y-4 ">
+          <div className="flex gap-2 mb-2">
+            <Button
+              variant="outline"
+              className="bg-white/50"
+              onClick={() => setSelectedPumpId("")}
+            >
+              ← Back to Pump Selection
+            </Button>
+            <Button
+              variant="outline"
+              className="bg-white/50"
+              onClick={handleSaveDraft}
+            >
+              Save Draft
+            </Button>
+          </div>
+          <Card className="bg-white/50 shadow-md" style={{ borderRadius: 12, border: '1px solid #e5e5ea' }}>
             <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">{selectedPump.name} ({selectedPump.type})</h3>
+              <h3 className="font-semibold">{selectedPump.name}{selectedPump.type ? ` (${selectedPump.type})` : ''}</h3>
               <Input
                 type="number"
                 placeholder="Opening Meter"
@@ -181,22 +241,29 @@ const AttendantDashboard = () => {
                 onChange={e => setReading(r => ({ ...r, closing: parseFloat(e.target.value) }))}
               />
               <p>
-                Expected: <strong>{expected} MWK</strong>
+                <strong>Volume Sold: {(!isNaN(reading.closing - reading.opening) ? (reading.closing - reading.opening).toLocaleString() : 0)} litres</strong>
+              </p>
+              <p>
+                Expected: <strong>{((Number(reading.closing) - Number(reading.opening)) * Number(selectedPump.price)).toLocaleString()} MWK</strong>
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-white/80 shadow-md">
+
+          <Card className="bg-white/50 shadow-md">
             <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">Cash Sales</h3>
-              <Input
-                type="number"
-                value={cash}
-                onChange={e => setCash(parseFloat(e.target.value))}
-                placeholder="Total cash received"
-              />
+              <h3 className="font-semibold">Cash Sales</h3> {/* Add a heading */}
+              <div className="flex gap-2 text-black">
+                <Input
+                  type="number"
+                  value={cash}
+                  onChange={e => setCash(e.target.value)}
+                  placeholder="Total Cash Received"
+                />
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/80 shadow-md">
+
+          <Card className="bg-white/50 shadow-md">
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">Prepayments</h3>
               {prepayments.map((p, idx) => (
@@ -218,7 +285,7 @@ const AttendantDashboard = () => {
               {/* Save prepayments as array in DB */}
             </CardContent>
           </Card>
-          <Card className="bg-white/80 shadow-md">
+          <Card className="bg-white/50 shadow-md">
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">Credit Sales</h3>
               {credits.map((c, idx) => (
@@ -240,13 +307,78 @@ const AttendantDashboard = () => {
               {/* Save credits as array in DB */}
             </CardContent>
           </Card>
+          <Card className="bg-white/50 shadow-md">
+            <CardContent className="space-y-2 p-4">
+              <h3 className="font-semibold">Card Payments</h3>
+              <h4 className="font-semibold text-sm mt-2">My Fuel Card Payments</h4>
+              {myFuelCards.map((c, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <Input
+                    placeholder="Customer Name"
+                    value={c.name}
+                    onChange={e => updateList(myFuelCards, setMyFuelCards, idx, 'name', e.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={c.amount}
+                    onChange={e => updateList(myFuelCards, setMyFuelCards, idx, 'amount', e.target.value)}
+                  />
+                </div>
+              ))}
+              <Button onClick={() => addEntry(myFuelCards, setMyFuelCards)}>+ Add My Fuel Card Payment</Button>
+
+              <h4 className="font-semibold text-sm mt-4">FDH Bank Card Payments</h4>
+              {fdhCards.map((c, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <Input
+                    placeholder="Customer Name"
+                    value={c.name}
+                    onChange={e => updateList(fdhCards, setFdhCards, idx, 'name', e.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={c.amount}
+                    onChange={e => updateList(fdhCards, setFdhCards, idx, 'amount', e.target.value)}
+                  />
+                </div>
+              ))}
+              <Button onClick={() => addEntry(fdhCards, setFdhCards)}>+ Add FDH Card Payment</Button>
+
+              <h4 className="font-semibold text-sm mt-4">National Bank Card Payments</h4>
+              {nationalBankCards.map((c, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <Input
+                    placeholder="Customer Name"
+                    value={c.name}
+                    onChange={e => updateList(nationalBankCards, setNationalBankCards, idx, 'name', e.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={c.amount}
+                    onChange={e => updateList(nationalBankCards, setNationalBankCards, idx, 'amount', e.target.value)}
+                  />
+                </div>
+              ))}
+              <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)}>+ Add National Bank Card Payment</Button>
+            </CardContent>
+          </Card>
           <div className="p-4 border rounded-lg space-y-2 bg-blue-50/80 shadow">
             <h3 className="font-semibold text-xl">Summary</h3>
             {(() => {
               // Calculate expected amount from readings and pump price
               const expected = selectedPump ? (Number(reading.closing) - Number(reading.opening)) * Number(selectedPump.price) : 0;
               // Calculate total collected
-              const collected = Number(cash) + prepayments.reduce((sum, p) => sum + Number(p.amount), 0) + credits.reduce((sum, c) => sum + Number(c.amount), 0);
+              const collected = Number(cash)
+                + prepayments.reduce((sum, p) => sum + Number(p.amount), 0)
+                + credits.reduce((sum, c) => sum + Number(c.amount), 0)
+                + myFuelCards.reduce((sum, c) => sum + Number(c.amount), 0)
+                + fdhCards.reduce((sum, c) => sum + Number(c.amount), 0)
+                + nationalBankCards.reduce((sum, c) => sum + Number(c.amount), 0);
+              // Calculate volume
+              const volume = Number(reading.closing) - Number(reading.opening);
               // Calculate balance
               let balanceLabel = 'Balanced';
               let balanceClass = 'text-gray-800';
@@ -259,6 +391,7 @@ const AttendantDashboard = () => {
               }
               return (
                 <>
+                  <p>Volume Sold: <strong>{!isNaN(volume) ? volume.toLocaleString() : 0} litres</strong></p>
                   <p>Expected Return: <strong>{!isNaN(expected) ? expected.toLocaleString() : 0} MWK</strong></p>
                   <p>Total Collected: <strong>{!isNaN(collected) ? collected.toLocaleString() : 0} MWK</strong></p>
                   <p>

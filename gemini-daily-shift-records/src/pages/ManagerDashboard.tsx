@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery }  from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { cn } from "../lib/utils";
@@ -8,8 +8,9 @@ import { useAtomValue } from "jotai";
 import { userAtom } from "../store/auth";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell, RadialBarChart, RadialBar } from 'recharts';
 import * as XLSX from 'xlsx';
+
 
 const fetchSummaries = async (shift: string) => {
   // Fetch all shifts for the selected shift type
@@ -76,7 +77,18 @@ export default function ManagerDashboard() {
   const { data: summaries, isLoading, error: queryError } = useQuery({
     queryKey: ["manager", shift],
     queryFn: () => fetchSummaries(shift),
+
   });
+const COLORS = [
+  '#007aff', '#34c759', '#ff9500', '#ff2d55',
+  '#5856d6', '#5ac8fa', '#af52de', '#ffcc00'
+];
+
+// Compute submissions and pumps from records
+const submissions = records;
+const pumps = Array.from(new Set(records.map((rec) => rec.pump_id)));
+const submittedPumps = new Set(submissions.map((sub: any) => sub.pump_id));
+const completionPercent = pumps.length > 0 ? (submittedPumps.size / pumps.length) * 100 : 0;
 
   useEffect(() => {
     const fetchRecords = async () => {
@@ -122,12 +134,21 @@ export default function ManagerDashboard() {
     fetchAttendants();
   }, []);
 
-  // Logout function
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setLocation("/");
-    window.location.reload();
-  };
+// Logout function
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  setLocation("/");
+};
+
+// Pie chart data
+const volumeData = submissions.map((sub: any) => ({
+  name: `${pumpMap[sub.pump_id] ?? sub.pump_id} - ${sub.attendant?.username ?? sub.attendant_id}`,
+  value: Number(sub.closing_reading ?? sub.closing) - Number(sub.opening_reading ?? sub.opening),
+}));
+const priceData = submissions.map((sub: any) => ({
+  name: `${pumpMap[sub.pump_id] ?? sub.pump_id} - ${sub.attendant?.username ?? sub.attendant_id}`,
+  value: Number(sub.cash_received ?? sub.cash ?? 0) + Number(sub.prepayment_received ?? sub.prepaid ?? 0) + Number(sub.credit_received ?? sub.credit ?? 0),
+}));
 
   // Filtered records by attendant
   const filteredRecords = selectedAttendant
@@ -247,14 +268,26 @@ export default function ManagerDashboard() {
   const attendant = summaries?.find((s: any) => s.attendantName === selected);
 
   return (
-    <div className="p-4 grid gap-4">
-      <div className="flex justify-between items-center mb-4">
+    <><div className="min-h-screen p-4" style={{
+        backgroundImage: 'url("/puma.jpg")', // Replace with your image path
+    backgroundSize: 'cover', // Ensures the image covers the entire screen
+    backgroundPosition: 'center', // Centers the image
+    backgroundRepeat: 'no-repeat',
+      fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+      color: '#111',
+    }}>
+      <div className="flex justify-between items-center mb-4" style={{
+        borderBottom: '1px solid #d1d1d6',
+        paddingBottom: '0.5rem',
+        marginBottom: '1.5rem',
+      }}>
         <h2 className="text-2xl font-bold">
           Welcome, {user?.username || "Administrator"}!
         </h2>
         <Button
           onClick={handleLogout}
           className="bg-red-600 hover:bg-red-700 text-white"
+          style={{ borderRadius: 8, fontWeight: 600 }}
         >
           Log Out
         </Button>
@@ -270,14 +303,15 @@ export default function ManagerDashboard() {
       </Select>
 
       <div className="flex items-center gap-4 mb-4">
-        <label className="font-semibold">Select Date:</label>
+        <label className="font-semibold" style={{ color: '#333' }}>Select Date:</label>
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <label className="font-semibold ml-4">Attendant:</label>
+          className="border rounded px-2 py-1" />
+        <label className="font-semibold ml-4" style={{ color: '#333' }}>
+          Attendant:
+        </label>
         <select
           value={selectedAttendant}
           onChange={(e) => setSelectedAttendant(e.target.value)}
@@ -368,53 +402,98 @@ export default function ManagerDashboard() {
           )}
         </div>
         {/* End attendants list */}
-
-        {attendant && selected && (
-          <div className="space-y-2">
-            <h2 className="font-bold text-xl">
-              Summary for {attendant.attendantName}
-            </h2>
-            <Card className="p-4">
-              <CardContent className="space-y-2">
-                <p>Shift: {attendant.shift}</p>
-                <p>Date: {attendant.date}</p>
-                <p>Opening Total: {attendant.openingTotal.toLocaleString()} MWK</p>
-                <p>Closing Total: {attendant.closingTotal.toLocaleString()} MWK</p>
-                <p>Expected Return: {attendant.expectedTotal.toLocaleString()} MWK</p>
-                <p>Cash Collected: {attendant.cashTotal.toLocaleString()} MWK</p>
-                <p>Prepaid:</p>
-                <ul className="ml-4 list-disc">
-                  {attendant.prepaids.map((p: any, idx: number) => (
-                    <li key={idx}>
-                      {p.name} - {p.amount.toLocaleString()} MWK
-                    </li>
-                  ))}
-                </ul>
-                <p>Credit:</p>
-                <ul className="ml-4 list-disc">
-                  {attendant.credits.map((c: any, idx: number) => (
-                    <li key={idx}>
-                      {c.name} - {c.amount.toLocaleString()} MWK
-                    </li>
-                  ))}
-                </ul>
-                <p
-                  className={
-                    attendant.difference >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }
-                >
-                  {attendant.difference >= 0
-                    ? `Overage: +${attendant.difference.toLocaleString()}`
-                    : `Shortage: ${attendant.difference.toLocaleString()}`}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <PieChart width={300} height={300}>
+          <Pie
+            data={volumeData}
+            dataKey="value"
+            nameKey="name"
+            label
+          >
+            {volumeData.map((_entry: any, idx: number) => (
+              <Cell key={`cell-vol-${idx}`} fill={COLORS[idx % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+        </PieChart>
       </div>
-      <div className="mt-8">
+
+      <PieChart width={300} height={300}>
+        <Pie
+          data={priceData}
+          dataKey="value"
+          nameKey="name"
+          label
+        >
+          {priceData.map((_entry: any, idx: number) => (
+            <Cell key={`cell-price-${idx}`} fill={COLORS[idx % COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip />
+      </PieChart>
+
+      <RadialBarChart
+        width={200}
+        height={200}
+        cx={100}
+        cy={100}
+        innerRadius={80}
+        outerRadius={100}
+        barSize={20}
+        data={[{ name: 'Completion', value: completionPercent }]}
+        startAngle={90}
+        endAngle={-270}
+      >
+        <RadialBar
+          background
+          dataKey="value"
+          fill="#007aff" />
+        <Tooltip />
+      </RadialBarChart>
+
+      <div className="text-center mt-2 font-bold text-lg">{Math.round(completionPercent)}% Complete</div>
+      {attendant && selected && (
+        <div className="space-y-2">
+          <h2 className="font-bold text-xl mb-2">
+            Summary for {attendant.attendantName}
+          </h2>
+          <Card className="p-4 shadow border border-gray-200">
+            <CardContent className="space-y-2 p-4 bg-gray-50 rounded-lg"><p>Shift: {attendant.shift}</p>
+              <p>Date: {attendant.date}</p>
+              <p>Opening Total: {attendant.openingTotal.toLocaleString()} MWK</p>
+              <p>Closing Total: {attendant.closingTotal.toLocaleString()} MWK</p>
+              <p>Expected Return: {attendant.expectedTotal.toLocaleString()} MWK</p>
+              <p>Cash Collected: {attendant.cashTotal.toLocaleString()} MWK</p>
+              <p>Prepaid:</p>
+              <ul className="ml-4 list-disc">
+                {attendant.prepaids.map((p: any, idx: number) => (
+                  <li key={idx}>
+                    {p.name} - {p.amount.toLocaleString()} MWK
+                  </li>
+                ))}
+              </ul>
+              <p>Credit:</p>
+              <ul className="ml-4 list-disc">
+                {attendant.credits.map((c: any, idx: number) => (
+                  <li key={idx}>
+                    {c.name} - {c.amount.toLocaleString()} MWK
+                  </li>
+                ))}
+              </ul>
+              <p
+                className={attendant.difference >= 0
+                  ? "text-green-600"
+                  : "text-red-600"}
+              >
+                {attendant.difference >= 0
+                  ? `Overage: +${attendant.difference.toLocaleString()}`
+                  : `Shortage: ${attendant.difference.toLocaleString()}`}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    {/* </div>
+    <div className="p-4 mt-8"> */}
         <h2 className="font-bold text-xl mb-4">Shift Records</h2>
         {loading ? (
           <p>Loading records...</p>
@@ -449,6 +528,6 @@ export default function ManagerDashboard() {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
