@@ -199,6 +199,7 @@ const AttendantDashboard = () => {
     backgroundSize: 'cover', // Ensures the image covers the entire screen
     backgroundPosition: 'center', // Centers the image
     backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'fixed',
       
       fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
       color: '#111',

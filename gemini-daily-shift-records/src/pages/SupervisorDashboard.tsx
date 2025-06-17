@@ -145,6 +145,7 @@ export default function SupervisorApproval() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
+        backgroundAttachment: 'fixed',
         fontFamily: "San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
         color: "#111",
       }}

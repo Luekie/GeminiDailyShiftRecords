@@ -47,6 +47,7 @@ export default function LoginPage() {
     backgroundSize: 'cover', // Ensures the image covers the entire screen
     backgroundPosition: 'center', // Centers the image
     backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'fixed',
         fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
         color: '#111',
       }}
@@ -90,15 +91,7 @@ export default function LoginPage() {
             {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
           </button>
         </div>
-        {/* <label className="flex items-center mb-4 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={showPassword}
-            onChange={() => setShowPassword((v) => !v)}
-            className="mr-2 accent-blue-500"
-          />
-          Show password
-        </label> */}
+       
         {error && <div className="text-red-500 mb-3 text-sm text-center">{error}</div>}
         <button
           type="submit" // Ensure the button submits the form
