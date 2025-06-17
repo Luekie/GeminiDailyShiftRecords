@@ -98,29 +98,41 @@ const AttendantDashboard = () => {
     setLocation('/');
   };
 
-  const submitShift = useMutation({
+    const submitShift = useMutation({
     mutationFn: async () => {
       if (!selectedPump) throw new Error('No pump selected');
       if (!user) throw new Error('User not logged in');
+
       const payload = {
-        user_id: user.id,
-        shift,
         pump_id: selectedPump.id,
-        reading_opening: reading.opening,
-        reading_closing: reading.closing,
-        cash: Number(cash) || 0,
-        prepayments: prepayments.map(p => ({ ...p, amount: Number(p.amount) || 0 })),
-        credits: credits.map(c => ({ ...c, amount: Number(c.amount) || 0 })),
-        my_fuel_cards: myFuelCards.map(c => ({ ...c, amount: Number(c.amount) || 0 })),
-        fdh_cards: fdhCards.map(c => ({ ...c, amount: Number(c.amount) || 0 })),
-        national_bank_cards: nationalBankCards.map(c => ({ ...c, amount: Number(c.amount) || 0 })),
-        submitted_at: new Date().toISOString(),
+        attendant_id: user.id,
+        shift_type: shift,
+        shift_date: new Date().toISOString().slice(0, 10),
+        opening_reading: reading.opening,
+        closing_reading: reading.closing,
+        fuel_price: selectedPump.price, // ✅ This field is required by the DB
+        cash_received: Number(cash) || 0,
+        prepayment_received: prepayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
+        credit_received: credits.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+        fuel_card_received: myFuelCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+        fdh_card_received: fdhCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+        national_bank_card_received: nationalBankCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+        is_approved: false,
+        supervisor_id: null,
+        fix_reason: null,
       };
-      const { error } = await supabase.from('shift_records').insert([payload]);
-      if (error) throw error;
+
+      console.log("Submitting payload:", payload); // ✅ Helpful debug log
+      const { error } = await supabase.from('shifts').insert([payload]);
+      if (error) {
+        console.error("Supabase insert error:", error); // ✅ Helpful debug log
+        throw error;
+      }
+
       return true;
     },
     onSuccess: () => {
+      alert('Shift submitted successfully!'); // ✅ Feedback to user
       setSubmitted(true);
       setSelectedPumpId("");
       setReading({ opening: 0, closing: 0 });
@@ -131,10 +143,12 @@ const AttendantDashboard = () => {
       setFdhCards([{ name: '', amount: '' }]);
       setNationalBankCards([{ name: '', amount: '' }]);
     },
-    onError: (err: any) => {
-      alert('Failed to submit shift: ' + (err?.message || err));
-    }
+    onError: (error: any) => {
+      console.error('Submit error:', error);
+      alert('Failed to submit shift: ' + (error?.message || JSON.stringify(error)));
+    },
   });
+
   useEffect(() => {
     if (submitted) {
       setTimeout(() => {
@@ -144,9 +158,40 @@ const AttendantDashboard = () => {
     }
   }, [submitted, setLocation]);
 
-  function handleSaveDraft(_event: React.MouseEvent<HTMLButtonElement>): void {
-    throw new Error('Function not implemented.');
+    function handleSaveDraft() {
+    const draft = {
+      pump_id: selectedPumpId,
+      opening_reading: reading.opening,
+      closing_reading: reading.closing,
+      cash,
+      prepayments,
+      credits,
+      myFuelCards,
+      fdhCards,
+      nationalBankCards,
+      shift,
+      shift_date: new Date().toISOString().slice(0, 10),
+    };
+    localStorage.setItem('shiftDraft', JSON.stringify(draft));
+    alert('Draft saved!');
   }
+  
+  useEffect(() => {
+  const savedDraft = localStorage.getItem('shiftDraft');
+  if (savedDraft) {
+    const draft = JSON.parse(savedDraft);
+    setSelectedPumpId(draft.pump_id);
+    setReading({ opening: draft.opening_reading, closing: draft.closing_reading });
+    setCash(draft.cash);
+    setPrepayments(draft.prepayments);
+    setCredits(draft.credits);
+    setMyFuelCards(draft.myFuelCards);
+    setFdhCards(draft.fdhCards);
+    setNationalBankCards(draft.nationalBankCards);
+    setShift(draft.shift);
+  }
+}, []);
+
 
   return (
     <div className="min-h-screen p-4" style={{
@@ -252,12 +297,13 @@ const AttendantDashboard = () => {
           <Card className="bg-white/50 shadow-md">
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">Cash Sales</h3> {/* Add a heading */}
-              <div className="flex gap-2 text-black">
+              <div className="flex gap-2 ">
                 <Input
                   type="number"
                   value={cash}
                   onChange={e => setCash(e.target.value)}
                   placeholder="Total Cash Received"
+                  className="text-black bg-white/40"
                 />
               </div>
             </CardContent>
@@ -269,11 +315,13 @@ const AttendantDashboard = () => {
               {prepayments.map((p, idx) => (
                 <div key={idx} className="flex gap-2">
                   <Input
+                    className="text-black bg-white/50"
                     placeholder="Customer Name"
                     value={p.name}
                     onChange={e => updateList(prepayments, setPrepayments, idx, 'name', e.target.value)}
                   />
                   <Input
+                    className="text-black bg-white/50"
                     type="number"
                     placeholder="Amount"
                     value={p.amount}
@@ -291,11 +339,13 @@ const AttendantDashboard = () => {
               {credits.map((c, idx) => (
                 <div key={idx} className="flex gap-2">
                   <Input
+                    className="text-black bg-white/50"
                     placeholder="Customer Name"
                     value={c.name}
                     onChange={e => updateList(credits, setCredits, idx, 'name', e.target.value)}
                   />
                   <Input
+                    className="text-black bg-white/50"
                     type="number"
                     placeholder="Amount"
                     value={c.amount}
@@ -314,11 +364,13 @@ const AttendantDashboard = () => {
               {myFuelCards.map((c, idx) => (
                 <div key={idx} className="flex gap-2">
                   <Input
+                    className="text-black bg-white/50"
                     placeholder="Customer Name"
                     value={c.name}
                     onChange={e => updateList(myFuelCards, setMyFuelCards, idx, 'name', e.target.value)}
                   />
                   <Input
+                    className="text-black bg-white/50"
                     type="number"
                     placeholder="Amount"
                     value={c.amount}
@@ -332,11 +384,13 @@ const AttendantDashboard = () => {
               {fdhCards.map((c, idx) => (
                 <div key={idx} className="flex gap-2">
                   <Input
+                    className="text-black bg-white/50"
                     placeholder="Customer Name"
                     value={c.name}
                     onChange={e => updateList(fdhCards, setFdhCards, idx, 'name', e.target.value)}
                   />
                   <Input
+                    className="text-black bg-white/50"
                     type="number"
                     placeholder="Amount"
                     value={c.amount}
@@ -350,11 +404,13 @@ const AttendantDashboard = () => {
               {nationalBankCards.map((c, idx) => (
                 <div key={idx} className="flex gap-2">
                   <Input
+                    className="text-black bg-white/50"
                     placeholder="Customer Name"
                     value={c.name}
                     onChange={e => updateList(nationalBankCards, setNationalBankCards, idx, 'name', e.target.value)}
                   />
                   <Input
+                    className="text-black bg-white/50"
                     type="number"
                     placeholder="Amount"
                     value={c.amount}
@@ -365,7 +421,7 @@ const AttendantDashboard = () => {
               <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)}>+ Add National Bank Card Payment</Button>
             </CardContent>
           </Card>
-          <div className="p-4 border rounded-lg space-y-2 bg-blue-50/80 shadow">
+          <div className="p-4 border rounded-lg space-y-2 bg-white/50 shadow">
             <h3 className="font-semibold text-xl">Summary</h3>
             {(() => {
               // Calculate expected amount from readings and pump price
