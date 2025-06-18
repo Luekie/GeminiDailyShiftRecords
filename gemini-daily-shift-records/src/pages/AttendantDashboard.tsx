@@ -290,20 +290,26 @@ useEffect(() => {
 
 
   return (
-    <div className=" relative min-h-screen p-4 space-y-4" style={{
-      margin:0,
-       backgroundImage: 'url("/puma.jpg")', // Replace with your image path
-    backgroundSize: 'cover', // Ensures the image covers the entire screen
-    backgroundPosition: 'center', // Centers the image
-    backgroundRepeat: 'no-repeat',
-    backgroundAttachment: 'fixed',
-    backgroundBlendMode:'overlay',
-      
-      
-      fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
-      color: '#111',
-    }}>
-
+    <div className=" relative min-h-screen p-4 space-y-4">
+      <div 
+      className="fixed inset-0 -z-10"
+      style={{
+        backgroundImage: 'url("/puma.jpg")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        // Mobile optimization:
+        height: '100vh',
+        width: '100vw',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        // Prevent tearing:
+        transform: 'translate3d(0,0,0)', // Force GPU acceleration
+        backfaceVisibility: 'hidden', // Prevent rendering artifacts
+        willChange: 'transform', // Optimize for animation
+      }}
+    />
       <div className="flex justify-between items-center mb-4" style={{
       borderBottom: '1px solid #d1d1d6',
       paddingBottom: '0.5rem',
@@ -357,7 +363,7 @@ useEffect(() => {
     </Select>
   </div>
 
-  <div className="flex items-center space-x-4 ml-4"> {/* Group for pump selector with left margin */}
+  <div className="flex items-center space-x-4 ml-4"> 
     <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
       Select Pump:
     </label>
