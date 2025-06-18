@@ -290,7 +290,7 @@ useEffect(() => {
 
 
   return (
-    <div className="min-h-screen p-4 space-y-4" style={{
+    <div className=" relative min-h-screen p-4 space-y-4" style={{
       margin:0,
        backgroundImage: 'url("/puma.jpg")', // Replace with your image path
     backgroundSize: 'cover', // Ensures the image covers the entire screen
