@@ -118,6 +118,8 @@ const AttendantDashboard = () => {
     return () => { mounted = false; };
   }, []);
 
+  
+
   const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
   const value = e.target.value;
   if (value === '' || /^\d*\.?\d*$/.test(value)) {
@@ -289,6 +291,7 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen p-4 space-y-4" style={{
+      margin:0,
        backgroundImage: 'url("/puma.jpg")', // Replace with your image path
     backgroundSize: 'cover', // Ensures the image covers the entire screen
     backgroundPosition: 'center', // Centers the image
