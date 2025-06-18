@@ -291,7 +291,7 @@ useEffect(() => {
 
   return (
 
-    <div className="relative min-h-screen w-full p-4 space-y-4 bg-[url('/puma.jpg')] bg-cover bg-center bg-no-repeat text-black font-sans">
+    <div className="relative min-h-screen w-full p-4 space-y-4 ">
 
     
       <div className="flex justify-between items-center mb-4" style={{
