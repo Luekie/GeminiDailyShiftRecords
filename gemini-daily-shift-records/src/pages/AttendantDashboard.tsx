@@ -294,18 +294,13 @@ useEffect(() => {
     <div className="relative min-h-screen w-full p-4 space-y-4 ">
 
     
-      <div className="flex justify-between items-center mb-4" style={{
-      borderBottom: '1px solid #d1d1d6',
-      paddingBottom: '0.5rem',
-      marginBottom: '1.5rem',
-    }}>
-      <h2 className="text-2xl font-bold mb-2">
-        Welcome, {user ? user.username : 'Guest'}!
+      <div className="flex flex-wrap items-center justify-between gap-2 px-2">
+      <h2 className="text-base font-semibold text-white">
+        Welcome, {user?.username || 'Guest'}!
       </h2>
       <Button
         onClick={handleLogout}
-        className="bg-red-600 hover:bg-red-700 text-white"
-        style={{ borderRadius: 8, fontWeight: 600 }}
+        className="bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
       >
         Log Out
       </Button>
@@ -381,7 +376,7 @@ useEffect(() => {
 </div>
      
 
-      {customSectionVisible && (
+    {customSectionVisible && (
         <div className="mt-4 w-full space-y-4">
           <Card className="bg-white/80 shadow-md">
             <CardContent className="space-y-2 p-4">
@@ -395,9 +390,7 @@ useEffect(() => {
                 placeholder="Volume (litres)"
                 type="number"
                 value={vehicleData.volume}
-                onChange={e => handleNumericChange(e, (val) => 
-                    setVehicleData({ ...vehicleData, volume: val })
-                  )}
+                onChange={e => setVehicleData({ ...vehicleData, volume: e.target.value })}
               />
             </CardContent>
           </Card>
@@ -408,18 +401,14 @@ useEffect(() => {
               <Input
                 placeholder="Hours Used"
                 type="number"
-                 onChange={e => handleNumericChange(e, (val) => 
-                setGensetData({ ...gensetData, hours: val })
-              )}
-               
+                value={gensetData.hours}
+                onChange={e => setGensetData({ ...gensetData, hours: e.target.value })}
               />
               <Input
                 placeholder="Volume (litres)"
                 type="number"
                 value={gensetData.volume}
-                onChange={e => handleNumericChange(e, (val) => 
-                  setGensetData({ ...gensetData, volume: val })
-                )}
+                onChange={e => setGensetData({ ...gensetData, volume: e.target.value })}
               />
             </CardContent>
           </Card>
@@ -436,9 +425,7 @@ useEffect(() => {
                 placeholder="Volume (litres)"
                 type="number"
                 value={lawnmowerData.volume}
-                onChange={e => handleNumericChange(e, (val) => 
-                  setLawnmowerData({ ...lawnmowerData, volume: val })
-                )}
+                onChange={e => setLawnmowerData({ ...lawnmowerData, volume: e.target.value })}
               />
             </CardContent>
           </Card>
@@ -450,7 +437,6 @@ useEffect(() => {
           </div>
         </div>
       )}
-
       
       {selectedPump && (
         <div className="space-y-4 ">
