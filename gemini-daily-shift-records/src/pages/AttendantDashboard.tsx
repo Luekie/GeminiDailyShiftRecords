@@ -290,20 +290,10 @@ useEffect(() => {
 
 
   return (
-    <div className=" relative min-h-screen p-4 space-y-4" style={{
-      margin:0,
-       backgroundImage: 'url("/puma.jpg")', // Replace with your image path
-    backgroundSize: 'cover', // Ensures the image covers the entire screen
-    backgroundPosition: 'center', // Centers the image
-    backgroundRepeat: 'no-repeat',
-    backgroundAttachment: 'fixed',
-    backgroundBlendMode:'overlay',
-      
-      
-      fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
-      color: '#111',
-    }}>
 
+    <div className="relative min-h-screen w-full p-4 space-y-4 bg-[url('/puma.jpg')] bg-cover bg-center bg-no-repeat text-black font-sans">
+
+    
       <div className="flex justify-between items-center mb-4" style={{
       borderBottom: '1px solid #d1d1d6',
       paddingBottom: '0.5rem',
