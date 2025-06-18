@@ -224,6 +224,7 @@ const AttendantDashboard = () => {
     },
   });
 
+
 useEffect(() => {
   if (submitted) {  // Check the state value, not the setter
     const timer = setTimeout(() => {
@@ -293,6 +294,8 @@ useEffect(() => {
     backgroundPosition: 'center', // Centers the image
     backgroundRepeat: 'no-repeat',
     backgroundAttachment: 'fixed',
+    backgroundBlendMode:'overlay',
+      
       
       fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
       color: '#111',
@@ -484,13 +487,13 @@ useEffect(() => {
                 type="number"
                 placeholder="Opening Meter"
                 value={reading.opening}
-                onChange={e => setReading(r => ({ ...r, opening: parseFloat(e.target.value)||0 }))}
+                onChange={e => setReading(r => ({ ...r, opening: parseFloat(e.target.value)}))}
               />
               <Input
                 type="number"
                 placeholder="Closing Meter"
                 value={reading.closing}
-                onChange={e => setReading(r => ({ ...r, closing: parseFloat(e.target.value)||0 }))}
+                onChange={e => setReading(r => ({ ...r, closing: parseFloat(e.target.value)}))}
               />
               <p>
                 <strong>Volume Sold: {(!isNaN(reading.closing - reading.opening) ? (reading.closing - reading.opening).toLocaleString() : 0)} litres</strong>
