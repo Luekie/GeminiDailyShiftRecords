@@ -292,12 +292,10 @@ useEffect(() => {
   return (
     <div className=" relative min-h-screen">
       <div 
-      className="fixed inset-0 -z-10"
+      className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
       style={{
         backgroundImage: 'url("/puma.jpg")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
+       
         // Mobile optimization:
         height: '100vh',
         width: '100vw',
@@ -307,7 +305,7 @@ useEffect(() => {
         // Prevent tearing:
         transform: 'translate3d(0,0,0)', // Force GPU acceleration
         backfaceVisibility: 'hidden', // Prevent rendering artifacts
-        willChange: 'transform', // Optimize for animation
+       // Optimize for animation
       }}
 
 
