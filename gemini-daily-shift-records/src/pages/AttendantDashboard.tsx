@@ -290,7 +290,7 @@ useEffect(() => {
 
 
   return (
-    <div className=" relative min-h-screen p-4 space-y-4">
+    <div className=" relative min-h-screen">
       <div 
       className="fixed inset-0 -z-10"
       style={{
@@ -309,7 +309,14 @@ useEffect(() => {
         backfaceVisibility: 'hidden', // Prevent rendering artifacts
         willChange: 'transform', // Optimize for animation
       }}
+
+
     />
+
+    <div className="relative z-10 p-4 space-y-4" style={{
+      fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+      color: '#111',
+    }}>
       <div className="flex justify-between items-center mb-4" style={{
       borderBottom: '1px solid #d1d1d6',
       paddingBottom: '0.5rem',
@@ -705,6 +712,7 @@ useEffect(() => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
