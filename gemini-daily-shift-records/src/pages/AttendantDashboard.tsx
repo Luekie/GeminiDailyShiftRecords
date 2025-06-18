@@ -9,6 +9,26 @@ import { useAtom } from 'jotai';
 import { userAtom } from '../store/auth';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { useLocation } from 'wouter';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+
+interface PaymentEntry {
+  name: string;
+  amount: string;
+}
+
+interface CustomUsageData {
+  registration?: string;
+  hours?: string;
+  gardener?: string;
+  volume: string;
+}
+
+interface Reading {
+  opening: number;
+  closing: number;
+}
+
 
 const AttendantDashboard = () => {
   const [user, setUser] = useAtom(userAtom);
@@ -17,19 +37,23 @@ const AttendantDashboard = () => {
 
   const [shift, setShift] = useState<'day' | 'night'>('day');
   const [selectedPumpId, setSelectedPumpId] = useState<string>("");
-  const [reading, setReading] = useState({ opening: 0, closing: 0 });
+  const [reading, setReading] = useState<Reading>({ opening: 0, closing: 0 });
   const [cash, setCash] = useState('');
-  const [prepayments, setPrepayments] = useState([{ name: '', amount: '' }]);
-  const [credits, setCredits] = useState([{ name: '', amount: '' }]);
-  const [myFuelCards, setMyFuelCards] = useState([{ name: '', amount: '' }]);
-  const [fdhCards, setFdhCards] = useState([{ name: '', amount: '' }]);
-  const [nationalBankCards, setNationalBankCards] = useState([{ name: '', amount: '' }]);
-  const [submitted, setSubmitted] = useState(false);
+  const [prepayments, setPrepayments] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
+  const [credits, setCredits] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
+  const [myFuelCards, setMyFuelCards] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
+  const [fdhCards, setFdhCards] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
+  const [nationalBankCards, setNationalBankCards] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
   const [pumps, setPumps] = useState<any[]>([]);
   const [loadingPumps, setLoadingPumps] = useState(true);
   const [pumpError, setPumpError] = useState<string | null>(null);
 
   const selectedPump = pumps.find(p => String(p.id) === selectedPumpId);
+  const [customSectionVisible, setCustomSectionVisible] = useState(false);
+  const [vehicleData, setVehicleData] = useState<CustomUsageData>({ registration: '', volume: '' });
+  const [gensetData, setGensetData] = useState<CustomUsageData>({ hours: '', volume: '' });
+  const [lawnmowerData, setLawnmowerData] = useState<CustomUsageData>({ gardener: '', volume: '' });
+  const [submitted, setSubmitted] = useState(false);
 
   function updateList<T extends { [key: string]: any }>(
     list: T[],
@@ -76,10 +100,12 @@ const AttendantDashboard = () => {
   }, [user, loading, setLocation]);
 
   useEffect(() => {
+    let mounted =true;
     const fetchPumps = async () => {
       setLoadingPumps(true);
       setPumpError(null);
       const { data, error } = await supabase.from('pumps').select('*');
+      if (!mounted) return;
       if (error) {
         setPumpError('Failed to load pumps');
         setPumps([]);
@@ -89,8 +115,49 @@ const AttendantDashboard = () => {
       setLoadingPumps(false);
     };
     fetchPumps();
+    return () => { mounted = false; };
   }, []);
 
+  const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+  const value = e.target.value;
+  if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    setter(value);
+  }
+};
+
+  const handleSaveCustomUsage = async () => {
+
+   const usages = [
+    { type: 'vehicle', metadata: { registration: vehicleData.registration }, volume: vehicleData.volume },
+    { type: 'genset', metadata: { hours: gensetData.hours }, volume: gensetData.volume },
+    { type: 'lawnmower', metadata: { gardener: lawnmowerData.gardener }, volume: lawnmowerData.volume },
+  ].filter(usage => usage.volume && Number(usage.volume) > 0);
+
+  if (usages.length === 0) {
+    alert('Please enter valid usage data');
+    return;
+  }
+
+   try {
+      for (const usage of usages) {
+        await supabase.from('custom_usage').insert({
+          shift_id: null,
+          type: usage.type,
+          metadata: usage.metadata,
+          volume: Number(usage.volume),
+        });
+      }
+      alert('Custom usage submitted');
+      setCustomSectionVisible(false);
+      setVehicleData({ registration: '', volume: '' });
+      setGensetData({ hours: '', volume: '' });
+      setLawnmowerData({ gardener: '', volume: '' });
+    } catch (error) {
+      console.error('Error saving custom usage:', error);
+      alert('Failed to submit custom usage');
+    }
+  };
+  
   const handleLogout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('sessionExpiry');
@@ -102,6 +169,13 @@ const AttendantDashboard = () => {
     mutationFn: async () => {
       if (!selectedPump) throw new Error('No pump selected');
       if (!user) throw new Error('User not logged in');
+            if (isNaN(reading.opening) || isNaN(reading.closing)) {
+        throw new Error('Invalid meter readings');
+      }
+      if (reading.closing < reading.opening) {
+        throw new Error('Closing reading must be greater than opening reading');
+      }
+
 
       const payload = {
         pump_id: selectedPump.id,
@@ -142,6 +216,7 @@ const AttendantDashboard = () => {
       setMyFuelCards([{ name: '', amount: '' }]);
       setFdhCards([{ name: '', amount: '' }]);
       setNationalBankCards([{ name: '', amount: '' }]);
+      localStorage.removeItem('shiftDraft'); // Clear draft on successful submit
     },
     onError: (error: any) => {
       console.error('Submit error:', error);
@@ -149,16 +224,22 @@ const AttendantDashboard = () => {
     },
   });
 
-  useEffect(() => {
-    if (submitted) {
-      setTimeout(() => {
-        setSubmitted(false);
-        setLocation('/attendant');
-      }, 2000);
-    }
-  }, [submitted, setLocation]);
+useEffect(() => {
+  if (submitted) {  // Check the state value, not the setter
+    const timer = setTimeout(() => {
+      setSubmitted(false);
+      setLocation('/attendant');
+    }, 2000);
+    return () => clearTimeout(timer);
+  }
+}, [submitted, setLocation]);  // Include submitted in dependencies
 
-    function handleSaveDraft() {
+     function handleSaveDraft() {
+    if (!selectedPumpId) {
+      alert('Please select a pump first');
+      return;
+    }
+
     const draft = {
       pump_id: selectedPumpId,
       opening_reading: reading.opening,
@@ -177,24 +258,36 @@ const AttendantDashboard = () => {
   }
   
   useEffect(() => {
-  const savedDraft = localStorage.getItem('shiftDraft');
-  if (savedDraft) {
-    const draft = JSON.parse(savedDraft);
-    setSelectedPumpId(draft.pump_id);
-    setReading({ opening: draft.opening_reading, closing: draft.closing_reading });
-    setCash(draft.cash);
-    setPrepayments(draft.prepayments);
-    setCredits(draft.credits);
-    setMyFuelCards(draft.myFuelCards);
-    setFdhCards(draft.fdhCards);
-    setNationalBankCards(draft.nationalBankCards);
-    setShift(draft.shift);
+    const savedDraft = localStorage.getItem('shiftDraft');
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft) {
+          setSelectedPumpId(draft.pump_id || "");
+          setReading({ 
+            opening: Number(draft.opening_reading) || 0, 
+            closing: Number(draft.closing_reading) || 0 
+          });
+          setCash(draft.cash || '');
+          setPrepayments(draft.prepayments || [{ name: '', amount: '' }]);
+          setCredits(draft.credits || [{ name: '', amount: '' }]);
+          setMyFuelCards(draft.myFuelCards || [{ name: '', amount: '' }]);
+          setFdhCards(draft.fdhCards || [{ name: '', amount: '' }]);
+          setNationalBankCards(draft.nationalBankCards || [{ name: '', amount: '' }]);
+        }
+      } catch (error) {
+        console.error('Error loading draft:', error);
+      }
+    }
+  }, []);
+
+   if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
-}, []);
 
 
   return (
-    <div className="min-h-screen p-4" style={{
+    <div className="min-h-screen p-4 space-y-4" style={{
        backgroundImage: 'url("/puma.jpg")', // Replace with your image path
     backgroundSize: 'cover', // Ensures the image covers the entire screen
     backgroundPosition: 'center', // Centers the image
@@ -204,62 +297,175 @@ const AttendantDashboard = () => {
       fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
       color: '#111',
     }}>
+
       <div className="flex justify-between items-center mb-4" style={{
-        borderBottom: '1px solid #d1d1d6',
-        paddingBottom: '0.5rem',
-        marginBottom: '1.5rem',
-      }}>
-        <h2 className="text-2xl font-bold mb-2">
-          Welcome, {user ? user.username : 'Guest'}!
-        </h2>
-        <Button
-          onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white"
-          style={{ borderRadius: 8, fontWeight: 600 }}
-        >
-          Log Out
-        </Button>
-      </div>
-      <div className="flex gap-4 items-center mb-4">
-        <label className="font-semibold" style={{ color: '#222' }}>Select Shift:</label>
-        <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
-          <SelectTrigger className="w-32 bg-white/50 ">{shift.toUpperCase()} Shift</SelectTrigger>
-          <SelectContent>
-            <SelectItem value="day">Day</SelectItem>
-            <SelectItem value="night">Night</SelectItem>
-          </SelectContent>
-        </Select>
-        <label className="font-semibold ml-8" style={{ color: '#222' }}>
-          Select Pump:
-        </label>
-        {loadingPumps ? (
-          <p>Loading pumps...</p>
-        ) : pumpError ? (
-          <p className="text-red-600">{pumpError}</p>
-        ) : (
-          <Select value={selectedPumpId} onValueChange={setSelectedPumpId}>
-            <SelectTrigger className="w-64 bg-white/50" style={{ borderRadius: 8, border: '1px solid #e5e5ea', color: "black" }}>
-              {selectedPumpId
-                ? pumps.find(p => String(p.id) === selectedPumpId)?.name
-                : 'Choose a pump'}
-            </SelectTrigger>
-            <SelectContent>
-              {pumps.map(p => (
-                <SelectItem key={String(p.id)} value={String(p.id)}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+      borderBottom: '1px solid #d1d1d6',
+      paddingBottom: '0.5rem',
+      marginBottom: '1.5rem',
+    }}>
+      <h2 className="text-2xl font-bold mb-2">
+        Welcome, {user ? user.username : 'Guest'}!
+      </h2>
+      <Button
+        onClick={handleLogout}
+        className="bg-red-600 hover:bg-red-700 text-white"
+        style={{ borderRadius: 8, fontWeight: 600 }}
+      >
+        Log Out
+      </Button>
+    </div>
+
+      <div className="flex items-center mb-6 gap-4"> {/* Increased bottom margin and gap */}
+      <Tooltip>
+          <TooltipTrigger asChild>
+            <div> {/* Wrapper div for tooltip */}
+              <Button
+                variant="outline"
+                className="bg-white/50"
+                onClick={() => setCustomSectionVisible(!customSectionVisible)}
+                disabled={!!selectedPumpId} // Disable when pump is selected
+              >
+                {customSectionVisible ? 'Hide Own Use' : 'Own Use'}
+              </Button>
+            </div>
+          </TooltipTrigger>
+          {selectedPumpId && (
+            <TooltipContent>
+              <p>Please deselect the pump first</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+
+  <div className="flex items-center space-x-4"> {/* Group for shift selector with spacing */}
+    <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
+      Select Shift:
+    </label>
+    <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
+      <SelectTrigger className="w-32 bg-white/50">
+        {shift.toUpperCase()} Shift
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="day">Day</SelectItem>
+        <SelectItem value="night">Night</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+  <div className="flex items-center space-x-4 ml-4"> {/* Group for pump selector with left margin */}
+    <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
+      Select Pump:
+    </label>
+    
+    {loadingPumps ? (
+      <p className="whitespace-nowrap">Loading pumps...</p>
+    ) : pumpError ? (
+      <p className="text-red-600 whitespace-nowrap">{pumpError}</p>
+    ) : (
+      <Select value={selectedPumpId}
+       onValueChange={(value) => {
+        setSelectedPumpId(value);
+        setCustomSectionVisible(false); // Hide custom section when pump is selected
+
+       }}>
+        <SelectTrigger className="w-64 bg-white/50" style={{ borderRadius: 8, border: '1px solid #e5e5ea', color: "black" }}>
+          {selectedPumpId
+            ? pumps.find(p => String(p.id) === selectedPumpId)?.name
+            : 'Choose a pump'}
+        </SelectTrigger>
+        <SelectContent>
+          {pumps.map(p => (
+            <SelectItem key={String(p.id)} value={String(p.id)}>
+              {p.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )}
+  </div>
+</div>
+     
+
+      {customSectionVisible && (
+        <div className="mt-4 w-full space-y-4">
+          <Card className="bg-white/80 shadow-md">
+            <CardContent className="space-y-2 p-4">
+              <h3 className="font-semibold">Vehicle Use</h3>
+              <Input
+                placeholder="Vehicle Registration"
+                value={vehicleData.registration}
+                onChange={e => setVehicleData({ ...vehicleData, registration: e.target.value })}
+              />
+              <Input
+                placeholder="Volume (litres)"
+                type="number"
+                value={vehicleData.volume}
+                onChange={e => handleNumericChange(e, (val) => 
+                    setVehicleData({ ...vehicleData, volume: val })
+                  )}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 shadow-md">
+            <CardContent className="space-y-2 p-4">
+              <h3 className="font-semibold">Genset Use</h3>
+              <Input
+                placeholder="Hours Used"
+                type="number"
+                 onChange={e => handleNumericChange(e, (val) => 
+                setGensetData({ ...gensetData, hours: val })
+              )}
+               
+              />
+              <Input
+                placeholder="Volume (litres)"
+                type="number"
+                value={gensetData.volume}
+                onChange={e => handleNumericChange(e, (val) => 
+                  setGensetData({ ...gensetData, volume: val })
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 shadow-md">
+            <CardContent className="space-y-2 p-4">
+              <h3 className="font-semibold">Lawnmower Use</h3>
+              <Input
+                placeholder="Gardener Name"
+                value={lawnmowerData.gardener}
+                onChange={e => setLawnmowerData({ ...lawnmowerData, gardener: e.target.value })}
+              />
+              <Input
+                placeholder="Volume (litres)"
+                type="number"
+                value={lawnmowerData.volume}
+                onChange={e => handleNumericChange(e, (val) => 
+                  setLawnmowerData({ ...lawnmowerData, volume: val })
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveCustomUsage} className="bg-blue-600 text-white hover:bg-blue-700">
+              Submit Own Use
+            </Button>
+          </div>
+        </div>
+      )}
+
+      
       {selectedPump && (
         <div className="space-y-4 ">
           <div className="flex gap-2 mb-2">
             <Button
               variant="outline"
               className="bg-white/50"
-              onClick={() => setSelectedPumpId("")}
+              onClick={() => {
+                setSelectedPumpId("");
+                setCustomSectionVisible(false); // Hide custom section when going back
+              }}
             >
               ← Back to Pump Selection
             </Button>
@@ -278,13 +484,13 @@ const AttendantDashboard = () => {
                 type="number"
                 placeholder="Opening Meter"
                 value={reading.opening}
-                onChange={e => setReading(r => ({ ...r, opening: parseFloat(e.target.value) }))}
+                onChange={e => setReading(r => ({ ...r, opening: parseFloat(e.target.value)||0 }))}
               />
               <Input
                 type="number"
                 placeholder="Closing Meter"
                 value={reading.closing}
-                onChange={e => setReading(r => ({ ...r, closing: parseFloat(e.target.value) }))}
+                onChange={e => setReading(r => ({ ...r, closing: parseFloat(e.target.value)||0 }))}
               />
               <p>
                 <strong>Volume Sold: {(!isNaN(reading.closing - reading.opening) ? (reading.closing - reading.opening).toLocaleString() : 0)} litres</strong>
@@ -302,7 +508,7 @@ const AttendantDashboard = () => {
                 <Input
                   type="number"
                   value={cash}
-                  onChange={e => setCash(e.target.value)}
+                  onChange={e => handleNumericChange(e, setCash)}
                   placeholder="Total Cash Received"
                   className="text-black bg-white/40"
                 />
@@ -326,7 +532,9 @@ const AttendantDashboard = () => {
                     type="number"
                     placeholder="Amount"
                     value={p.amount}
-                    onChange={e => updateList(prepayments, setPrepayments, idx, 'amount', e.target.value)}
+                    onChange={e => handleNumericChange(e, (val) =>
+                      updateList(prepayments, setPrepayments, idx, 'amount', val)
+                    )}
                   />
                 </div>
               ))}
@@ -350,7 +558,9 @@ const AttendantDashboard = () => {
                     type="number"
                     placeholder="Amount"
                     value={c.amount}
-                    onChange={e => updateList(credits, setCredits, idx, 'amount', e.target.value)}
+                    onChange={e => handleNumericChange(e, (val) =>
+                      updateList(credits, setCredits, idx, 'amount', val)
+                    )}
                   />
                 </div>
               ))}
@@ -375,7 +585,9 @@ const AttendantDashboard = () => {
                     type="number"
                     placeholder="Amount"
                     value={c.amount}
-                    onChange={e => updateList(myFuelCards, setMyFuelCards, idx, 'amount', e.target.value)}
+                    onChange={e => handleNumericChange(e, (val) =>
+                      updateList(myFuelCards, setMyFuelCards, idx, 'amount', val)
+                    )}
                   />
                 </div>
               ))}
@@ -395,7 +607,9 @@ const AttendantDashboard = () => {
                     type="number"
                     placeholder="Amount"
                     value={c.amount}
-                    onChange={e => updateList(fdhCards, setFdhCards, idx, 'amount', e.target.value)}
+                    onChange={e => handleNumericChange(e, (val) =>
+                      updateList(fdhCards, setFdhCards, idx, 'amount', val)
+                    )}
                   />
                 </div>
               ))}
@@ -415,7 +629,9 @@ const AttendantDashboard = () => {
                     type="number"
                     placeholder="Amount"
                     value={c.amount}
-                    onChange={e => updateList(nationalBankCards, setNationalBankCards, idx, 'amount', e.target.value)}
+                    onChange={e => handleNumericChange(e, (val) =>
+                      updateList(nationalBankCards, setNationalBankCards, idx, 'amount', val)
+                    )}
                   />
                 </div>
               ))}
@@ -482,3 +698,8 @@ const AttendantDashboard = () => {
 };
 
 export default AttendantDashboard;
+
+
+
+
+
