@@ -10,7 +10,7 @@ import { userAtom } from '../store/auth';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { useLocation } from 'wouter';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
+  
 
 interface PaymentEntry {
   name: string;
@@ -186,7 +186,7 @@ const AttendantDashboard = () => {
         shift_date: new Date().toISOString().slice(0, 10),
         opening_reading: reading.opening,
         closing_reading: reading.closing,
-        fuel_price: selectedPump.price, // ✅ This field is required by the DB
+        fuel_price: selectedPump.price, 
         cash_received: Number(cash) || 0,
         prepayment_received: prepayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
         credit_received: credits.reduce((sum, c) => sum + Number(c.amount || 0), 0),
@@ -198,10 +198,10 @@ const AttendantDashboard = () => {
         fix_reason: null,
       };
 
-      console.log("Submitting payload:", payload); // ✅ Helpful debug log
+      console.log("Submitting payload:", payload);  
       const { error } = await supabase.from('shifts').insert([payload]);
       if (error) {
-        console.error("Supabase insert error:", error); // ✅ Helpful debug log
+        console.error("Supabase insert error:", error);
         throw error;
       }
 
@@ -291,7 +291,7 @@ useEffect(() => {
 
   return (
 
-    <div className="relative min-h-screen w-full p-4 space-y-4 ">
+    <div className=" relative min-h-screen w-full p-4 space-y-4 ">
 
     
       <div className="flex flex-wrap items-center justify-between gap-2 px-2">
@@ -300,32 +300,14 @@ useEffect(() => {
       </h2>
       <Button
         onClick={handleLogout}
-        className="bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
+        className=" justify-end bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
       >
         Log Out
       </Button>
     </div>
 
       <div className="flex items-center mb-6 gap-4"> {/* Increased bottom margin and gap */}
-      <Tooltip>
-          <TooltipTrigger asChild>
-            <div> {/* Wrapper div for tooltip */}
-              <Button
-                variant="outline"
-                className="bg-white/50"
-                onClick={() => setCustomSectionVisible(!customSectionVisible)}
-                disabled={!!selectedPumpId} // Disable when pump is selected
-              >
-                {customSectionVisible ? 'Hide Own Use' : 'Own Use'}
-              </Button>
-            </div>
-          </TooltipTrigger>
-          {selectedPumpId && (
-            <TooltipContent>
-              <p>Please deselect the pump first</p>
-            </TooltipContent>
-          )}
-        </Tooltip>
+     
 
   <div className="flex items-center space-x-4"> {/* Group for shift selector with spacing */}
     <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
@@ -431,7 +413,7 @@ useEffect(() => {
           </Card>
 
           <div className="flex justify-end">
-            <Button onClick={handleSaveCustomUsage} className="bg-blue-600 text-white hover:bg-blue-700">
+            <Button onClick={handleSaveCustomUsage} variant="outline" className="bg-white/50  hover:bg-white/60">
               Submit Own Use
             </Button>
           </div>
@@ -675,7 +657,35 @@ useEffect(() => {
           </div>
         </div>
       )}
-    </div>
+
+
+
+      
+      <div className="bottom-0 fixed  w-full mt-8 p-4 z-50">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Button
+                variant="outline"
+                className="bg-white/50"
+                onClick={() => setCustomSectionVisible(!customSectionVisible)}
+                disabled={!!selectedPumpId}
+              >
+                {customSectionVisible ? 'Hide Own Use' : 'Own Use'}
+              </Button>
+            </div>
+          </TooltipTrigger>
+          {selectedPumpId && (
+            <TooltipContent>
+              <p>Please deselect the pump first</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </div>
+      
+
+          </div>
+    
   );
 };
 
