@@ -431,7 +431,7 @@ useEffect(() => {
                 setCustomSectionVisible(false); // Hide custom section when going back
               }}
             >
-              ← Back to Pump Selection
+              home
             </Button>
             <Button
               variant="outline"
@@ -600,8 +600,92 @@ useEffect(() => {
                 </div>
               ))}
               <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)}>+ Add National Bank Card Payment</Button>
+
+             <h4 className="font-semibold text-sm mt-4">MO - Payments </h4>
+              {fdhCards.map((c, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <Input
+                    className="text-black bg-white/50"
+                    placeholder="Customer Name"
+                    value={c.name}
+                    onChange={e => updateList(fdhCards, setFdhCards, idx, 'name', e.target.value)}
+                  />
+                  <Input
+                    className="text-black bg-white/50"
+                    type="number"
+                    placeholder="Amount"
+                    value={c.amount}
+                    onChange={e => handleNumericChange(e, (val) =>
+                      updateList(fdhCards, setFdhCards, idx, 'amount', val)
+                    )}
+                  />
+                </div>
+              ))}
+              <Button onClick={() => addEntry(fdhCards, setFdhCards)}>+ Add FDH Card Payment</Button>
+
+ 
+
             </CardContent>
           </Card>
+
+          <Card className="bg-white/50 shadow-md">
+  <CardContent className="space-y-4 p-4">
+    <h3 className="text-lg font-semibold">Own Use</h3>
+
+    <div className="space-y-2">
+      <h4 className="font-semibold">Vehicle Use</h4>
+      <Input
+        placeholder="Vehicle Registration"
+        value={vehicleData.registration}
+        onChange={e => setVehicleData({ ...vehicleData, registration: e.target.value })}
+      />
+      <Input
+        placeholder="Volume (litres)"
+        type="number"
+        value={vehicleData.volume}
+        onChange={e => setVehicleData({ ...vehicleData, volume: e.target.value })}
+      />
+    </div>
+
+    <div className="space-y-2">
+      <h4 className="font-semibold">Genset Use</h4>
+      <Input
+        placeholder="Hours Used"
+        type="number"
+        value={gensetData.hours}
+        onChange={e => setGensetData({ ...gensetData, hours: e.target.value })}
+      />
+      <Input
+        placeholder="Volume (litres)"
+        type="number"
+        value={gensetData.volume}
+        onChange={e => setGensetData({ ...gensetData, volume: e.target.value })}
+      />
+    </div>
+
+    <div className="space-y-2">
+      <h4 className="font-semibold">Lawnmower Use</h4>
+      <Input
+        placeholder="Gardener Name"
+        value={lawnmowerData.gardener}
+        onChange={e => setLawnmowerData({ ...lawnmowerData, gardener: e.target.value })}
+      />
+      <Input
+        placeholder="Volume (litres)"
+        type="number"
+        value={lawnmowerData.volume}
+        onChange={e => setLawnmowerData({ ...lawnmowerData, volume: e.target.value })}
+      />
+    </div>
+
+    <div className="flex justify-end">
+      <Button onClick={handleSaveCustomUsage} variant="outline" className="bg-white/50 hover:bg-white/60">
+        Submit Own Use
+      </Button>
+    </div>
+  </CardContent>
+</Card>
+
           <div className="p-4 border rounded-lg space-y-2 bg-white/50 shadow">
             <h3 className="font-semibold text-xl">Summary</h3>
             {(() => {
@@ -661,30 +745,10 @@ useEffect(() => {
 
 
       
-      <div className="bottom-0 fixed  w-full mt-8 p-4 z-50">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Button
-                variant="outline"
-                className="bg-white/50"
-                onClick={() => setCustomSectionVisible(!customSectionVisible)}
-                disabled={!!selectedPumpId}
-              >
-                {customSectionVisible ? 'Hide Own Use' : 'Own Use'}
-              </Button>
-            </div>
-          </TooltipTrigger>
-          {selectedPumpId && (
-            <TooltipContent>
-              <p>Please deselect the pump first</p>
-            </TooltipContent>
-          )}
-        </Tooltip>
-      </div>
+      
       
 
-          </div>
+     </div>
     
   );
 };
