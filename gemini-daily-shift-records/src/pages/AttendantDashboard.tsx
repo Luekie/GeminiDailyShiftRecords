@@ -9,7 +9,6 @@ import { useAtom } from 'jotai';
 import { userAtom } from '../store/auth';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { useLocation } from 'wouter';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
   
 
 interface PaymentEntry {
@@ -44,6 +43,8 @@ const AttendantDashboard = () => {
   const [myFuelCards, setMyFuelCards] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
   const [fdhCards, setFdhCards] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
   const [nationalBankCards, setNationalBankCards] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
+  const [moPayments, setMoPayments] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
+
   const [pumps, setPumps] = useState<any[]>([]);
   const [loadingPumps, setLoadingPumps] = useState(true);
   const [pumpError, setPumpError] = useState<string | null>(null);
@@ -218,6 +219,7 @@ const AttendantDashboard = () => {
       setMyFuelCards([{ name: '', amount: '' }]);
       setFdhCards([{ name: '', amount: '' }]);
       setNationalBankCards([{ name: '', amount: '' }]);
+      setMoPayments([{ name: '', amount: '' }]);
       localStorage.removeItem('shiftDraft'); // Clear draft on successful submit
     },
     onError: (error: any) => {
@@ -277,6 +279,7 @@ useEffect(() => {
           setMyFuelCards(draft.myFuelCards || [{ name: '', amount: '' }]);
           setFdhCards(draft.fdhCards || [{ name: '', amount: '' }]);
           setNationalBankCards(draft.nationalBankCards || [{ name: '', amount: '' }]);
+          
         }
       } catch (error) {
         console.error('Error loading draft:', error);
@@ -602,26 +605,26 @@ useEffect(() => {
               <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)}>+ Add National Bank Card Payment</Button>
 
              <h4 className="font-semibold text-sm mt-4">MO - Payments </h4>
-              {fdhCards.map((c, idx) => (
+              {moPayments.map((m, idx) => (
                 <div key={idx} className="flex gap-2">
                   <Input
                     className="text-black bg-white/50"
                     placeholder="Customer Name"
-                    value={c.name}
-                    onChange={e => updateList(fdhCards, setFdhCards, idx, 'name', e.target.value)}
+                    value={m.name}
+                    onChange={e => updateList(moPayments, setMoPayments, idx, 'name', e.target.value)}
                   />
                   <Input
                     className="text-black bg-white/50"
                     type="number"
                     placeholder="Amount"
-                    value={c.amount}
+                    value={m.amount}
                     onChange={e => handleNumericChange(e, (val) =>
-                      updateList(fdhCards, setFdhCards, idx, 'amount', val)
+                      updateList(moPayments,setMoPayments, idx, 'amount', val)
                     )}
                   />
                 </div>
               ))}
-              <Button onClick={() => addEntry(fdhCards, setFdhCards)}>+ Add FDH Card Payment</Button>
+              <Button onClick={() => addEntry(moPayments, setMoPayments)}>+ Add Mo Payment</Button>
 
  
 
@@ -698,6 +701,7 @@ useEffect(() => {
                 + myFuelCards.reduce((sum, c) => sum + Number(c.amount), 0)
                 + fdhCards.reduce((sum, c) => sum + Number(c.amount), 0)
                 + nationalBankCards.reduce((sum, c) => sum + Number(c.amount), 0);
+                + moPayments.reduce((sum, m) => sum + Number(m.amount), 0);
               // Calculate volume
               const volume = Number(reading.closing) - Number(reading.opening);
               // Calculate balance
