@@ -76,6 +76,7 @@ export default function ManagerDashboard() {
   const [selectedAttendant, setSelectedAttendant] = useState<string>("");
   const [pumpMap, setPumpMap] = useState<Record<string, string>>({});
   const [selectedRecords, setSelectedRecords] = useState<Set<string | number>>(new Set());
+  const [showAllModal, setShowAllModal] = useState(false);
 
   const { data: summaries, isLoading, error: queryError } = useQuery({
     queryKey: ["manager", shift],
@@ -330,14 +331,64 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
         <h2 className="text-2xl font-bold">
           Welcome, {user?.username || "Administrator"}!
         </h2>
-        <Button
-          onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white"
-          style={{ borderRadius: 8, fontWeight: 600 }}
-        >
-          Log Out
-        </Button>
+        <div className="flex gap-2 items-center">
+          <Button
+            onClick={() => setShowAllModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            style={{ borderRadius: 8, fontWeight: 600 }}
+          >
+            Show All Records
+          </Button>
+          <Button
+            onClick={handleLogout}
+            className="bg-red-600 hover:bg-red-700 text-white"
+            style={{ borderRadius: 8, fontWeight: 600 }}
+          >
+            Log Out
+          </Button>
+        </div>
       </div>
+      {/* Show All Records Modal */}
+      {showAllModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6 relative">
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-2xl font-bold"
+              onClick={() => setShowAllModal(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h2 className="text-xl font-bold mb-4">All Records for {selectedDate}</h2>
+            {records.length === 0 ? (
+              <p className="text-gray-600">No records for this day.</p>
+            ) : (
+              <div className="space-y-4">
+                {records.map((rec, idx) => (
+                  <div key={rec.id || idx} className="border-b pb-3 mb-3">
+                    <div className="font-semibold text-blue-700 text-lg flex gap-2 items-center">
+                      <span className="bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 mr-2">{idx + 1}</span>
+                      {rec.attendant?.username || rec.attendant_id} <span className="text-gray-500">|</span> {pumpMap[rec.pump_id] || rec.pump_id}
+                      <span className="text-gray-500">|</span> {rec.shift_type?.toUpperCase()} Shift
+                      <span className="text-gray-500">|</span> {rec.shift_date}
+                      <span className="text-gray-500">|</span> {rec.shift_type === 'day' ? '6:30am - 3:30pm' : '3:30pm - 6:30am'}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm">
+                      <div>Cash: <span className="font-bold">{rec.cash_received?.toLocaleString() ?? 0} MWK</span></div>
+                      <div>Prepaid: <span className="font-bold">{rec.prepayment_received?.toLocaleString() ?? 0} MWK</span></div>
+                      <div>Credit: <span className="font-bold">{rec.credit_received?.toLocaleString() ?? 0} MWK</span></div>
+                      <div>Fuel Card: <span className="font-bold">{rec.fuel_card_received?.toLocaleString() ?? 0} MWK</span></div>
+                      <div>FDH Card: <span className="font-bold">{rec.fdh_card_received?.toLocaleString() ?? 0} MWK</span></div>
+                      <div>National Bank Card: <span className="font-bold">{rec.national_bank_card_received?.toLocaleString() ?? 0} MWK</span></div>
+                      <div>MO Payment: <span className="font-bold">{rec.mo_payment_received?.toLocaleString() ?? 0} MWK</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* Filter Bar: Shift, Date, Attendant, Export */}
       <div className="flex flex-wrap items-center gap-4 mb-6 bg-white/50 rounded-lg p-3 shadow">
         <label className="font-semibold" style={{ color: '#333' }}>Shift:</label>
