@@ -9,6 +9,7 @@ import { userAtom } from "../store/auth";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell, RadialBarChart, RadialBar } from 'recharts';
+import { fetchShiftsForDate } from "@/lib/useFetchShiftsForDate";
 import * as XLSX from 'xlsx';
 
 
@@ -91,24 +92,22 @@ const submittedPumps = new Set(submissions.map((sub: any) => sub.pump_id));
 const completionPercent = pumps.length > 0 ? (submittedPumps.size / pumps.length) * 100 : 0;
 
   useEffect(() => {
-    const fetchRecords = async () => {
-      setLoading(true);
-      setError(null);
-      const { data, error } = await supabase
-        .from("shifts")
-        .select("*, attendant:attendant_id(username)")
-        .eq("shift_date", selectedDate)
-        .order("shift_date", { ascending: false });
-      if (error) {
-        setError("Failed to fetch records");
-        setRecords([]);
-      } else {
-        setRecords(data || []);
-      }
-      setLoading(false);
-    };
-    fetchRecords();
-  }, [selectedDate]);
+  const fetchRecords = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchShiftsForDate(selectedDate);
+      setRecords(data || []);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to fetch records');
+      setRecords([]);
+    }
+    setLoading(false);
+  };
+  fetchRecords();
+}, [selectedDate]);
+
 
   // Fetch pump names for mapping
   useEffect(() => {

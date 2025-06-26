@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useMutation } from '@tanstack/react-query';
 import { useAtom } from 'jotai';
 import { userAtom } from '../store/auth';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { useLocation } from 'wouter';
+import { cn } from '@/lib/utils';
   
 
 interface PaymentEntry {
@@ -16,12 +16,6 @@ interface PaymentEntry {
   amount: string;
 }
 
-interface CustomUsageData {
-  registration?: string;
-  hours?: string;
-  gardener?: string;
-  volume: string;
-}
 
 interface Reading {
   opening: number;
@@ -50,27 +44,33 @@ const AttendantDashboard = () => {
   const [pumpError, setPumpError] = useState<string | null>(null);
 
   const selectedPump = pumps.find(p => String(p.id) === selectedPumpId);
-  const [customSectionVisible, setCustomSectionVisible] = useState(false);
-  const [vehicleData, setVehicleData] = useState<CustomUsageData>({ registration: '', volume: '' });
-  const [gensetData, setGensetData] = useState<CustomUsageData>({ hours: '', volume: '' });
-  const [lawnmowerData, setLawnmowerData] = useState<CustomUsageData>({ gardener: '', volume: '' });
   const [submitted, setSubmitted] = useState(false);
 
-  function updateList<T extends { [key: string]: any }>(
-    list: T[],
-    setList: (val: T[]) => void,
-    idx: number,
-    field: string,
-    value: any
-  ) {
-    const newList = [...list];
-    newList[idx] = { ...newList[idx], [field]: value };
-    setList(newList);
-  }
+  // Own Use Entries State
+type OwnUseEntry =
+  | { type: 'vehicle'; registration: string; volume: string; amount: string }
+  | { type: 'genset'; hours: string; volume: string; amount: string }
+  | { type: 'lawnmower'; gardener: string; volume: string; amount: string };
 
-  function addEntry<T extends { name: string; amount: string }>(list: T[], setList: (val: T[]) => void) {
-    setList([...list, { name: '', amount: '' } as T]);
-  }
+const [ownUseEntries, setOwnUseEntries] = useState<OwnUseEntry[]>([
+  { type: 'vehicle', registration: '', volume: '', amount: '' },
+]);
+
+function updateOwnUseEntry(idx: number, field: string, value: any) {
+  const newEntries = [...ownUseEntries];
+  newEntries[idx] = { ...newEntries[idx], [field]: value };
+  setOwnUseEntries(newEntries);
+}
+
+function addOwnUseEntry(type: 'vehicle' | 'genset' | 'lawnmower') {
+  if (type === 'vehicle') setOwnUseEntries([...ownUseEntries, { type: 'vehicle', registration: '', volume: '', amount: '' }]);
+  if (type === 'genset') setOwnUseEntries([...ownUseEntries, { type: 'genset', hours: '', volume: '', amount: '' }]);
+  if (type === 'lawnmower') setOwnUseEntries([...ownUseEntries, { type: 'lawnmower', gardener: '', volume: '', amount: '' }]);
+}
+
+function removeOwnUseEntry(idx: number) {
+  setOwnUseEntries(ownUseEntries.filter((_, i) => i !== idx));
+}
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -128,39 +128,6 @@ const AttendantDashboard = () => {
   }
 };
 
-  const handleSaveCustomUsage = async () => {
-
-   const usages = [
-    { type: 'vehicle', metadata: { registration: vehicleData.registration }, volume: vehicleData.volume },
-    { type: 'genset', metadata: { hours: gensetData.hours }, volume: gensetData.volume },
-    { type: 'lawnmower', metadata: { gardener: lawnmowerData.gardener }, volume: lawnmowerData.volume },
-  ].filter(usage => usage.volume && Number(usage.volume) > 0);
-
-  if (usages.length === 0) {
-    alert('Please enter valid usage data');
-    return;
-  }
-
-   try {
-      for (const usage of usages) {
-        await supabase.from('custom_usage').insert({
-          shift_id: null,
-          type: usage.type,
-          metadata: usage.metadata,
-          volume: Number(usage.volume),
-        });
-      }
-      alert('Custom usage submitted');
-      setCustomSectionVisible(false);
-      setVehicleData({ registration: '', volume: '' });
-      setGensetData({ hours: '', volume: '' });
-      setLawnmowerData({ gardener: '', volume: '' });
-    } catch (error) {
-      console.error('Error saving custom usage:', error);
-      alert('Failed to submit custom usage');
-    }
-  };
-  
   const handleLogout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('sessionExpiry');
@@ -172,13 +139,12 @@ const AttendantDashboard = () => {
     mutationFn: async () => {
       if (!selectedPump) throw new Error('No pump selected');
       if (!user) throw new Error('User not logged in');
-            if (isNaN(reading.opening) || isNaN(reading.closing)) {
+      if (isNaN(reading.opening) || isNaN(reading.closing)) {
         throw new Error('Invalid meter readings');
       }
       if (reading.closing < reading.opening) {
         throw new Error('Closing reading must be greater than opening reading');
       }
-
 
       const payload = {
         pump_id: selectedPump.id,
@@ -188,15 +154,19 @@ const AttendantDashboard = () => {
         opening_reading: reading.opening,
         closing_reading: reading.closing,
         fuel_price: selectedPump.price, 
+       
+        is_approved: false,
+        supervisor_id: null,
+        fix_reason: null,
         cash_received: Number(cash) || 0,
         prepayment_received: prepayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
         credit_received: credits.reduce((sum, c) => sum + Number(c.amount || 0), 0),
         fuel_card_received: myFuelCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
         fdh_card_received: fdhCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
         national_bank_card_received: nationalBankCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
-        is_approved: false,
-        supervisor_id: null,
-        fix_reason: null,
+        mo_payment_received: moPayments.reduce((sum, m) => sum + Number(m.amount || 0), 0),
+        own_use: ownUseEntries.map(entry => ({ ...entry })),
+        own_use_total: ownUseEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0),
       };
 
       console.log("Submitting payload:", payload);  
@@ -220,6 +190,7 @@ const AttendantDashboard = () => {
       setFdhCards([{ name: '', amount: '' }]);
       setNationalBankCards([{ name: '', amount: '' }]);
       setMoPayments([{ name: '', amount: '' }]);
+      setOwnUseEntries([{ type: 'vehicle', registration: '', volume: '', amount: '' }]);
       localStorage.removeItem('shiftDraft'); // Clear draft on successful submit
     },
     onError: (error: any) => {
@@ -292,6 +263,14 @@ useEffect(() => {
   }
 
 
+  function updateList(_prepayments: PaymentEntry[], _setPrepayments: Dispatch<SetStateAction<PaymentEntry[]>>, _idx: number, _arg3: string, _value: string): void {
+    throw new Error('Function not implemented.');
+  }
+
+  function addEntry(_prepayments: PaymentEntry[], _setPrepayments: Dispatch<SetStateAction<PaymentEntry[]>>): void {
+    throw new Error('Function not implemented.');
+  }
+
   return (
 
     <div className=" relative min-h-screen w-full p-4 space-y-4 ">
@@ -340,8 +319,6 @@ useEffect(() => {
       <Select value={selectedPumpId}
        onValueChange={(value) => {
         setSelectedPumpId(value);
-        setCustomSectionVisible(false); // Hide custom section when pump is selected
-
        }}>
         <SelectTrigger className="w-64 bg-white/50" style={{ borderRadius: 8, border: '1px solid #e5e5ea', color: "black" }}>
           {selectedPumpId
@@ -361,69 +338,7 @@ useEffect(() => {
 </div>
      
 
-    {customSectionVisible && (
-        <div className="mt-4 w-full space-y-4">
-          <Card className="bg-white/80 shadow-md">
-            <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">Vehicle Use</h3>
-              <Input
-                placeholder="Vehicle Registration"
-                value={vehicleData.registration}
-                onChange={e => setVehicleData({ ...vehicleData, registration: e.target.value })}
-              />
-              <Input
-                placeholder="Volume (litres)"
-                type="number"
-                value={vehicleData.volume}
-                onChange={e => setVehicleData({ ...vehicleData, volume: e.target.value })}
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/80 shadow-md">
-            <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">Genset Use</h3>
-              <Input
-                placeholder="Hours Used"
-                type="number"
-                value={gensetData.hours}
-                onChange={e => setGensetData({ ...gensetData, hours: e.target.value })}
-              />
-              <Input
-                placeholder="Volume (litres)"
-                type="number"
-                value={gensetData.volume}
-                onChange={e => setGensetData({ ...gensetData, volume: e.target.value })}
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/80 shadow-md">
-            <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">Lawnmower Use</h3>
-              <Input
-                placeholder="Gardener Name"
-                value={lawnmowerData.gardener}
-                onChange={e => setLawnmowerData({ ...lawnmowerData, gardener: e.target.value })}
-              />
-              <Input
-                placeholder="Volume (litres)"
-                type="number"
-                value={lawnmowerData.volume}
-                onChange={e => setLawnmowerData({ ...lawnmowerData, volume: e.target.value })}
-              />
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end">
-            <Button onClick={handleSaveCustomUsage} variant="outline" className="bg-white/50  hover:bg-white/60">
-              Submit Own Use
-            </Button>
-          </div>
-        </div>
-      )}
-      
-      {selectedPump && (
+    {selectedPump && (
         <div className="space-y-4 ">
           <div className="flex gap-2 mb-2">
             <Button
@@ -431,7 +346,6 @@ useEffect(() => {
               className="bg-white/50"
               onClick={() => {
                 setSelectedPumpId("");
-                setCustomSectionVisible(false); // Hide custom section when going back
               }}
             >
               home
@@ -634,58 +548,88 @@ useEffect(() => {
           <Card className="bg-white/50 shadow-md">
   <CardContent className="space-y-4 p-4">
     <h3 className="text-lg font-semibold">Own Use</h3>
-
-    <div className="space-y-2">
-      <h4 className="font-semibold">Vehicle Use</h4>
-      <Input
-        placeholder="Vehicle Registration"
-        value={vehicleData.registration}
-        onChange={e => setVehicleData({ ...vehicleData, registration: e.target.value })}
-      />
-      <Input
-        placeholder="Volume (litres)"
-        type="number"
-        value={vehicleData.volume}
-        onChange={e => setVehicleData({ ...vehicleData, volume: e.target.value })}
-      />
+    {ownUseEntries.map((entry, idx) => (
+      <div key={idx} className="space-y-2 border-b pb-2 mb-2">
+        <div className="flex justify-between items-center">
+          <h4 className="font-semibold capitalize">{entry.type} Use</h4>
+          {ownUseEntries.length > 1 && (
+            <Button size="sm" variant="ghost" onClick={() => removeOwnUseEntry(idx)}>
+              Remove
+            </Button>
+          )}
+        </div>
+        {entry.type === 'vehicle' && (
+          <>
+            <Input
+              placeholder="Vehicle Registration"
+              value={entry.registration}
+              onChange={e => updateOwnUseEntry(idx, 'registration', e.target.value)}
+            />
+            <Input
+              placeholder="Volume (litres)"
+              type="number"
+              value={entry.volume}
+              onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
+            />
+            <Input
+              placeholder="Amount (MWK)"
+              type="number"
+              value={entry.amount}
+              onChange={e => updateOwnUseEntry(idx, 'amount', e.target.value)}
+            />
+          </>
+        )}
+        {entry.type === 'genset' && (
+          <>
+            <Input
+              placeholder="Hours Used"
+              type="number"
+              value={entry.hours}
+              onChange={e => updateOwnUseEntry(idx, 'hours', e.target.value)}
+            />
+            <Input
+              placeholder="Volume (litres)"
+              type="number"
+              value={entry.volume}
+              onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
+            />
+            <Input
+              placeholder="Amount (MWK)"
+              type="number"
+              value={entry.amount}
+              onChange={e => updateOwnUseEntry(idx, 'amount', e.target.value)}
+            />
+          </>
+        )}
+        {entry.type === 'lawnmower' && (
+          <>
+            <Input
+              placeholder="Gardener Name"
+              value={entry.gardener}
+              onChange={e => updateOwnUseEntry(idx, 'gardener', e.target.value)}
+            />
+            <Input
+              placeholder="Volume (litres)"
+              type="number"
+              value={entry.volume}
+              onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
+            />
+            <Input
+              placeholder="Amount (MWK)"
+              type="number"
+              value={entry.amount}
+              onChange={e => updateOwnUseEntry(idx, 'amount', e.target.value)}
+            />
+          </>
+        )}
+      </div>
+    ))}
+    <div className="flex gap-2">
+      <Button size="sm" variant="outline" onClick={() => addOwnUseEntry('vehicle')}>+ Vehicle</Button>
+      <Button size="sm" variant="outline" onClick={() => addOwnUseEntry('genset')}>+ Genset</Button>
+      <Button size="sm" variant="outline" onClick={() => addOwnUseEntry('lawnmower')}>+ Lawnmower</Button>
     </div>
-
-    <div className="space-y-2">
-      <h4 className="font-semibold">Genset Use</h4>
-      <Input
-        placeholder="Hours Used"
-        type="number"
-        value={gensetData.hours}
-        onChange={e => setGensetData({ ...gensetData, hours: e.target.value })}
-      />
-      <Input
-        placeholder="Volume (litres)"
-        type="number"
-        value={gensetData.volume}
-        onChange={e => setGensetData({ ...gensetData, volume: e.target.value })}
-      />
-    </div>
-
-    <div className="space-y-2">
-      <h4 className="font-semibold">Lawnmower Use</h4>
-      <Input
-        placeholder="Gardener Name"
-        value={lawnmowerData.gardener}
-        onChange={e => setLawnmowerData({ ...lawnmowerData, gardener: e.target.value })}
-      />
-      <Input
-        placeholder="Volume (litres)"
-        type="number"
-        value={lawnmowerData.volume}
-        onChange={e => setLawnmowerData({ ...lawnmowerData, volume: e.target.value })}
-      />
-    </div>
-
-    <div className="flex justify-end">
-      <Button onClick={handleSaveCustomUsage} variant="outline" className="bg-white/50 hover:bg-white/60">
-        Submit Own Use
-      </Button>
-    </div>
+    {/* Submit Own Use button removed as requested */}
   </CardContent>
 </Card>
 
@@ -695,13 +639,15 @@ useEffect(() => {
               // Calculate expected amount from readings and pump price
               const expected = selectedPump ? (Number(reading.closing) - Number(reading.opening)) * Number(selectedPump.price) : 0;
               // Calculate total collected
+              const ownUseTotal = ownUseEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
               const collected = Number(cash)
                 + prepayments.reduce((sum, p) => sum + Number(p.amount), 0)
                 + credits.reduce((sum, c) => sum + Number(c.amount), 0)
                 + myFuelCards.reduce((sum, c) => sum + Number(c.amount), 0)
                 + fdhCards.reduce((sum, c) => sum + Number(c.amount), 0)
-                + nationalBankCards.reduce((sum, c) => sum + Number(c.amount), 0);
-                + moPayments.reduce((sum, m) => sum + Number(m.amount), 0);
+                + nationalBankCards.reduce((sum, c) => sum + Number(c.amount), 0)
+                + moPayments.reduce((sum, m) => sum + Number(m.amount), 0)
+                + ownUseTotal;
               // Calculate volume
               const volume = Number(reading.closing) - Number(reading.opening);
               // Calculate balance

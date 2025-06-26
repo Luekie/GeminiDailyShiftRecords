@@ -7,19 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { useAtomValue } from "jotai";
 import { userAtom } from "../store/auth";
 import { useLocation } from "wouter";
-import { PreviousSubmissions } from "./PreviousSubmissions";
+import { fetchShiftsForDate } from "@/lib/useFetchShiftsForDate";
 
-const fetchSubmissions = async () => {
-  const { data, error } = await supabase
-    .from("submissions") // Ensure the table name is correct
-    .select("*"); // Ensure the query is valid
-
-  if (error) {
-    console.error("Error fetching submissions:", error.message);
-    throw error;
-  }
-  return data ?? [];
-};
 
 const approveSubmission = async (id: string) => {
   const { data, error } = await supabase
@@ -64,10 +53,15 @@ export default function SupervisorApproval() {
     fix_reason?: string;
   };
 
-  const { data: submissions = [], isLoading, error } = useQuery<Submission[]>({
-    queryKey: ["submissions"],
-    queryFn: fetchSubmissions,
-  });
+  const [selectedDate, setSelectedDate] = useState(() => {
+  const today = new Date();
+  return today.toISOString().slice(0, 10);
+});
+
+const { data: submissions = [], isLoading, error } = useQuery({
+  queryKey: ['submissions', selectedDate],
+  queryFn: () => fetchShiftsForDate(selectedDate),
+});
 
   const [modal, setModal] = useState<{ open: boolean; submission: Submission | null }>({
     open: false,
@@ -75,9 +69,16 @@ export default function SupervisorApproval() {
   });
   const [modalReason, setModalReason] = useState<string>("");
   const [pumpMap, setPumpMap] = useState<Record<string, string>>({});
-  // Removed unused showPumpDetails state
   const [notification, setNotification] = useState<string>("");
-  const [showPrevious, setShowPrevious] = useState<string | null>(null);
+  const [shiftFilter, setShiftFilter] = useState<'all' | 'day' | 'night'>('all');
+  // Section selection state
+const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending');
+
+  // Flat filtered submissions
+  const filteredSubmissions = (submissions || []).filter((sub: any) => {
+    if (shiftFilter !== 'all' && sub.shift_type !== shiftFilter) return false;
+    return true;
+  });
 
   // Fetch pump names for mapping
   useEffect(() => {
@@ -108,7 +109,6 @@ export default function SupervisorApproval() {
       await requestFix({ id, reason });
       setNotification("Attendant notified to fix submission.");
       setTimeout(() => setNotification(""), 2000);
-      // Removed setShowPumpDetails as it's unused
       return true;
     },
     onSuccess: () => {
@@ -124,18 +124,35 @@ export default function SupervisorApproval() {
     window.location.reload();
   };
 
+  // Categorize submissions
+  const approved = filteredSubmissions.filter((s: any) => s.is_approved);
+  const pending = filteredSubmissions.filter((s: any) => !s.is_approved && !s.fix_reason);
+  const requestedFix = filteredSubmissions.filter((s: any) => !!s.fix_reason);
+
+  // State for approved history drilldown
+  const [approvedAttendant, setApprovedAttendant] = useState<string | null>(null);
+  const [approvedPump, setApprovedPump] = useState<string | null>(null);
+
+  // Group approved by attendant and pump
+  const approvedByAttendant: Record<string, any[]> = {};
+  approved.forEach((s: any) => {
+    const attendant = s.attendant?.username || s.attendant_id || 'Unknown Attendant';
+    if (!approvedByAttendant[attendant]) approvedByAttendant[attendant] = [];
+    approvedByAttendant[attendant].push(s);
+  });
+
+  const approvedByAttendantAndPump: Record<string, Record<string, any[]>> = {};
+  Object.entries(approvedByAttendant).forEach(([attendant, subs]) => {
+    approvedByAttendantAndPump[attendant] = {};
+    subs.forEach((s: any) => {
+      const pump = pumpMap[s.pump_id] || s.pump_id || s.pump || '?';
+      if (!approvedByAttendantAndPump[attendant][pump]) approvedByAttendantAndPump[attendant][pump] = [];
+      approvedByAttendantAndPump[attendant][pump].push(s);
+    });
+  });
+
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p className="text-red-600">Error loading submissions</p>;
-
-  const groupedByDate: Record<string, Record<string, { approved: any[]; pending: any[] }>> = {};
-  (submissions || []).forEach((sub: any) => {
-    const date = sub.shift_date;
-    const attendant = sub.attendant?.username || sub.attendant_id || "Unknown Attendant";
-    if (!groupedByDate[date]) groupedByDate[date] = {};
-    if (!groupedByDate[date][attendant]) groupedByDate[date][attendant] = { approved: [], pending: [] };
-    if (sub.is_approved) groupedByDate[date][attendant].approved.push(sub);
-    else groupedByDate[date][attendant].pending.push(sub);
-  });
 
   return (
     <div
@@ -152,16 +169,178 @@ export default function SupervisorApproval() {
     >
       {/* Header */}
       <div className="flex justify-between items-center mb-4" style={{ borderBottom: "1px solid #d1d1d6", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
-        <h2 className="text-2xl font-bold">Welcome, {user?.username || "Supervisor"}!</h2>
+        <h2 className="text-2xl font-bold">Welcome, Supervisor {user?.username || ""}!</h2>
         <Button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white" style={{ borderRadius: 8, fontWeight: 600 }}>
           Log Out
         </Button>
       </div>
-
-      {/* Notification */}
+      <div className="flex items-center gap-4 mb-6">
+        <label className="font-semibold">Select Date to Review:</label>
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="border rounded px-2 py-1"
+        />
+        <label className="font-semibold ml-4">Shift:</label>
+        <select value={shiftFilter} onChange={e => setShiftFilter(e.target.value as 'all' | 'day' | 'night')} className="border rounded px-2 py-1">
+          <option value="all">All</option>
+          <option value="day">Day</option>
+          <option value="night">Night</option>
+        </select>
+      </div>
+      {/* Section buttons */}
+      <div className="flex gap-4 mb-6">
+        <Button variant={section === 'approved' ? 'default' : 'outline'} onClick={() => { setSection('approved'); setApprovedAttendant(null); setApprovedPump(null); }}>Approved Shifts (History)</Button>
+        <Button variant={section === 'pending' ? 'default' : 'outline'} onClick={() => setSection('pending')}>Pending Approval</Button>
+        <Button variant={section === 'fix' ? 'default' : 'outline'} onClick={() => setSection('fix')}>Requested for Fix</Button>
+      </div>
       {notification && <div className="bg-green-100 text-green-800 p-2 rounded mb-2 text-center">{notification}</div>}
-
-      {/* Modal */}
+      {/* Section content */}
+      {section === 'approved' && (
+        <div>
+          {Object.keys(approvedByAttendantAndPump).length === 0 ? (
+            <div className="ml-6 mt-2 text-gray-500">None</div>
+          ) : !approvedAttendant ? (
+            <ol className="list-decimal ml-6 mt-2">
+              {Object.keys(approvedByAttendantAndPump).map((attendant) => (
+                <li key={attendant} className="mb-2">
+                  <Button variant="outline" onClick={() => setApprovedAttendant(attendant)}>{attendant}</Button>
+                </li>
+              ))}
+            </ol>
+          ) : !approvedPump ? (
+            <div className="ml-6 mt-2">
+              <Button className="mb-2" onClick={() => setApprovedAttendant(null)}>Back to Attendants</Button>
+              <div className="font-semibold mb-2">Pumps for {approvedAttendant}:</div>
+              {Object.keys(approvedByAttendantAndPump[approvedAttendant]).map(pump => (
+                <Button key={pump} variant="outline" className="m-1" onClick={() => setApprovedPump(pump)}>{pump}</Button>
+              ))}
+            </div>
+          ) : (
+            <div className="ml-6 mt-2">
+              <Button className="mb-2" onClick={() => setApprovedPump(null)}>Back to Pumps</Button>
+              <div className="font-semibold mb-2">History for {approvedAttendant} - {approvedPump}:</div>
+              {approvedByAttendantAndPump[approvedAttendant][approvedPump].map((submission: any, idx: number) => (
+                <Card key={submission.id} className="bg-green-50 shadow-md mb-2">
+                  <CardContent className="space-y-2 p-4">
+                    <p className="font-bold">#{idx + 1} Date: {submission.shift_date} | Shift: {submission.shift_type}</p>
+                    <p>Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
+                    <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
+                    <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
+                    <p>Fuel Card: <span className="font-bold">{submission.fuel_card_received || 0} MWK</span></p>
+                    <p>FDH Card: <span className="font-bold">{submission.fdh_card_received || 0} MWK</span></p>
+                    <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
+                    <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
+                    <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
+                    {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
+                      <div className="mt-2">
+                        <h4 className="font-semibold">Own Use Details:</h4>
+                        <ul className="list-disc ml-6">
+                          {submission.own_use.map((ou: any, idx: number) => (
+                            <li key={idx}>
+                              {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
+                              {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
+                              {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
+                              Volume: {ou.volume}L, Amount: {ou.amount} MWK
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {section === 'pending' && (
+        <div>
+          {pending.length === 0 ? <div className="ml-6 mt-2 text-gray-500">None</div> :
+            pending.map((submission: any) => (
+              <Card key={submission.id} className="bg-white/80 shadow-md mb-4" style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}>
+                <CardContent className="space-y-2 p-4" style={{ background: "#fff", borderRadius: 10 }}>
+                  <p className="text-lg font-bold">Attendant: {submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}</p>
+                  <p>Pump: {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || '?'}</p>
+                  <p>Shift: {submission.shift_type}</p>
+                  <p>Date: {submission.shift_date}</p>
+                  <p>Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
+                  <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
+                  <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
+                  <p>Fuel Card: <span className="font-bold">{submission.fuel_card_received || 0} MWK</span></p>
+                  <p>FDH Card: <span className="font-bold">{submission.fdh_card_received || 0} MWK</span></p>
+                  <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
+                  <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
+                  <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
+                  {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
+                    <div className="mt-2">
+                      <h4 className="font-semibold">Own Use Details:</h4>
+                      <ul className="list-disc ml-6">
+                        {submission.own_use.map((ou: any, idx: number) => (
+                          <li key={idx}>
+                            {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
+                            {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
+                            {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
+                            Volume: {ou.volume}L, Amount: {ou.amount} MWK
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-4">
+                    <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
+                      <Check className="w-4 h-4" /> Approve
+                    </Button>
+                    <Button onClick={() => setModal({ open: true, submission })} className="bg-red-600 hover:bg-red-700 text-white">
+                      <X className="w-4 h-4" /> Request Fix
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+        </div>
+      )}
+      {section === 'fix' && (
+        <div>
+          {requestedFix.length === 0 ? <div className="ml-6 mt-2 text-gray-500">None</div> :
+            requestedFix.map((submission: any) => (
+              <Card key={submission.id} className="bg-yellow-50 shadow-md mb-4" style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}>
+                <CardContent className="space-y-2 p-4" style={{ background: "#fffbe6", borderRadius: 10 }}>
+                  <p className="text-lg font-bold">Attendant: {submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}</p>
+                  <p>Pump: {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || '?'}</p>
+                  <p>Shift: {submission.shift_type}</p>
+                  <p>Date: {submission.shift_date}</p>
+                  <p>Reason: <span className="font-bold text-red-600">{submission.fix_reason}</span></p>
+                  <p>Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
+                  <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
+                  <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
+                  <p>Fuel Card: <span className="font-bold">{submission.fuel_card_received || 0} MWK</span></p>
+                  <p>FDH Card: <span className="font-bold">{submission.fdh_card_received || 0} MWK</span></p>
+                  <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
+                  <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
+                  <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
+                  {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
+                    <div className="mt-2">
+                      <h4 className="font-semibold">Own Use Details:</h4>
+                      <ul className="list-disc ml-6">
+                        {submission.own_use.map((ou: any, idx: number) => (
+                          <li key={idx}>
+                            {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
+                            {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
+                            {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
+                            Volume: {ou.volume}L, Amount: {ou.amount} MWK
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+        </div>
+      )}
+      {/* Modal for request fix */}
       {modal.open && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
@@ -187,77 +366,6 @@ export default function SupervisorApproval() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Previous Submissions */}
-      <div className="flex items-center gap-4 mb-6">
-        <h3 className="font-bold text-lg" style={{ color: "#111" }}>Previous Submissions</h3>
-        <input type="date" value={showPrevious || ""} onChange={(e) => setShowPrevious(e.target.value)} className="border rounded px-2 py-1" />
-        <Button variant="outline" size="sm" onClick={() => setShowPrevious(showPrevious ? "" : new Date().toISOString().slice(0, 10))}>
-          {showPrevious ? "Hide" : "Show"} Previous Submissions
-        </Button>
-      </div>
-      {showPrevious && <PreviousSubmissions date={showPrevious} pumpMap={pumpMap} />}
-
-      {/* Grouped Submissions */}
-      {Object.keys(groupedByDate).length === 0 ? (
-        <div className="text-center text-gray-500 text-lg mt-12">No shift submissions to review at this time.</div>
-      ) : (
-        Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a)).map((date) => (
-          <div key={date} className="mb-6">
-            {Object.keys(groupedByDate[date]).map((attendant) => (
-              <div key={attendant} className="mb-4 ml-4">
-                <h4 className="font-semibold text-md mb-1">Attendant: {attendant}</h4>
-                <div className="mb-2">
-                  <span className="font-semibold">Pending:</span>
-                  {groupedByDate[date][attendant].pending.length === 0 ? (
-                    <span className="ml-2 text-gray-500">None</span>
-                  ) : (
-                    groupedByDate[date][attendant].pending.map((submission: any) => (
-                      <Card key={submission.id} className="bg-white/80 shadow-md" style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}>
-                        <CardContent className="space-y-2 p-4" style={{ background: "#fff", borderRadius: 10 }}>
-                          <p className="text-lg font-bold">Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}</p>
-                          <p>Shift: {submission.shift_type}</p>
-                          <p className="mt-2 font-medium">Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
-                          <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
-                          <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
-                          <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>
-                          <div className="flex items-center gap-2 mt-4">
-                            <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
-                              <Check className="w-4 h-4" /> Approve
-                            </Button>
-                            <Button onClick={() => setModal({ open: true, submission })} className="bg-red-600 hover:bg-red-700 text-white">
-                              <X className="w-4 h-4" /> Request Fix
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-                <div>
-                  <span className="font-semibold">Approved:</span>
-                  {groupedByDate[date][attendant].approved.length === 0 ? (
-                    <span className="ml-2 text-gray-500">None</span>
-                  ) : (
-                    groupedByDate[date][attendant]?.approved?.map((submission: any) => (
-                      <Card key={submission.id} className="bg-green-50 shadow p-4 my-2">
-                        <CardContent>
-                          <p className="text-lg font-bold">Pump {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || "?"}</p>
-                          <p>Shift: {submission.shift_type}</p>
-                          <p className="mt-2 font-medium">Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
-                          <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
-                          <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
-                          <p>Expected: <span className="font-bold">{(submission.closing_reading - submission.opening_reading) * (submission.fuel_price || 0)} MWK</span></p>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ))
       )}
     </div>
   );
