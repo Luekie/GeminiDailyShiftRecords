@@ -631,13 +631,13 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
         <Card className="bg-white/50">
           <CardContent>
             <h3 className="font-semibold mb-2">Performance (Total Collected per Attendant)</h3>
-            <div className="flex items-end gap-4 h-40">
+            <div className="flex items-end gap-4 h-40 mt-6"> {/* Added mt-6 for top margin */}
               {graphData.length === 0 ? (
                 <span className="text-white">No data</span>
               ) : (
                 (() => {
                   const maxValue = Math.max(...graphData.map(([, value]) => Number(value)));
-                  const maxHeight = 140;
+                  const maxHeight = 110; // Reduced from 140 to 110
                   return graphData.map(([name, value]) => (
                     <div key={name} className="flex flex-col items-center">
                       <div

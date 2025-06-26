@@ -316,13 +316,15 @@ useEffect(() => {
   }
 
 
-  function updateList(_prepayments: PaymentEntry[], _setPrepayments: Dispatch<SetStateAction<PaymentEntry[]>>, _idx: number, _arg3: string, _value: string): void {
-    throw new Error('Function not implemented.');
-  }
+  function updateList(list: PaymentEntry[], setList: Dispatch<SetStateAction<PaymentEntry[]>>, idx: number, field: string, value: string) {
+  const newList = [...list];
+  newList[idx] = { ...newList[idx], [field]: value };
+  setList(newList);
+}
 
-  function addEntry(_prepayments: PaymentEntry[], _setPrepayments: Dispatch<SetStateAction<PaymentEntry[]>>): void {
-    throw new Error('Function not implemented.');
-  }
+function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<PaymentEntry[]>>) {
+  setList([...list, { name: '', amount: '' }]);
+}
 
   return (
 
@@ -602,7 +604,7 @@ useEffect(() => {
   <CardContent className="space-y-4 p-4">
     <h3 className="text-lg font-semibold">Own Use</h3>
     {ownUseEntries.map((entry, idx) => (
-      <div key={idx} className="space-y-2 border-b pb-2 mb-2">
+      <div key={idx} className="space-y-2 border-b pb-2 mb-2  rounded-lg p-3"> {/* Added bg-gray-100, rounded, p-3 */}
         <div className="flex justify-between items-center">
           <h4 className="font-semibold capitalize">{entry.type} Use</h4>
           {ownUseEntries.length > 1 && (
@@ -614,17 +616,20 @@ useEffect(() => {
         {entry.type === 'vehicle' && (
           <>
             <Input
+               className="text-black bg-white/50"
               placeholder="Vehicle Registration"
               value={entry.registration}
               onChange={e => updateOwnUseEntry(idx, 'registration', e.target.value)}
             />
             <Input
+             className="text-black bg-white/50"
               placeholder="Volume (litres)"
               type="number"
               value={entry.volume}
               onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
             />
             <Input
+             className="text-black bg-white/50"
               placeholder="Amount (MWK)"
               type="number"
               value={entry.amount}
@@ -635,18 +640,21 @@ useEffect(() => {
         {entry.type === 'genset' && (
           <>
             <Input
+             className="text-black bg-white/50"
               placeholder="Hours Used"
               type="number"
               value={entry.hours}
               onChange={e => updateOwnUseEntry(idx, 'hours', e.target.value)}
             />
             <Input
+             className="text-black bg-white/50"
               placeholder="Volume (litres)"
               type="number"
               value={entry.volume}
               onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
             />
             <Input
+             className="text-black bg-white/50"
               placeholder="Amount (MWK)"
               type="number"
               value={entry.amount}
@@ -657,17 +665,20 @@ useEffect(() => {
         {entry.type === 'lawnmower' && (
           <>
             <Input
+             className="text-black bg-white/50"
               placeholder="Gardener Name"
               value={entry.gardener}
               onChange={e => updateOwnUseEntry(idx, 'gardener', e.target.value)}
             />
             <Input
+             className="text-black bg-white/50"
               placeholder="Volume (litres)"
               type="number"
               value={entry.volume}
               onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
             />
             <Input
+             className="text-black bg-white/50"
               placeholder="Amount (MWK)"
               type="number"
               value={entry.amount}
