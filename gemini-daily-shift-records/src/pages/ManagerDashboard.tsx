@@ -11,6 +11,7 @@ import { useLocation } from "wouter";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell, RadialBarChart, RadialBar } from 'recharts';
 import { fetchShiftsForDate } from "@/lib/useFetchShiftsForDate";
 import * as XLSX from 'xlsx';
+import { Download, User, Fuel, CreditCard, TrendingUp, TrendingDown, BarChart2, FileText, ChevronDown } from "lucide-react";
 
 
 const fetchSummaries = async (shift: string) => {
@@ -267,6 +268,25 @@ const priceData = submissions.map((sub: any) => ({
 
   const attendant = summaries?.find((s: any) => s.attendantName === selected);
 
+  // Add summary analytics calculation
+const totalRevenue = filteredRecords.reduce((sum, r) => sum + Number(r.cash_received || 0) + Number(r.prepayment_received || 0) + Number(r.credit_received || 0), 0);
+const totalVolume = filteredRecords.reduce((sum, r) => sum + ((Number(r.closing_reading || 0) - Number(r.opening_reading || 0))), 0);
+const avgOverage = filteredRecords.filter(r => typeof r.overage === 'number').reduce((sum, r, _, arr) => sum + (r.overage || 0) / arr.length, 0);
+const avgShortage = filteredRecords.filter(r => typeof r.shortage === 'number').reduce((sum, r, _, arr) => sum + (r.shortage || 0) / arr.length, 0);
+
+// Calculate payment type totals for summary
+const summaryTotals = filteredRecords.reduce((acc, rec) => {
+  acc.cash += Number(rec.cash_received || 0);
+  acc.prepaid += Number(rec.prepayment_received || 0);
+  acc.credit += Number(rec.credit_received || 0);
+  acc.fuelCard += Number(rec.fuel_card_received || 0);
+  acc.fdhCard += Number(rec.fdh_card_received || 0);
+  acc.nationalBankCard += Number(rec.national_bank_card_received || 0);
+  acc.moPayment += Number(rec.mo_payment_received || 0);
+  acc.ownUse += Number(rec.own_use_total || 0);
+  return acc;
+}, { cash: 0, prepaid: 0, credit: 0, fuelCard: 0, fdhCard: 0, nationalBankCard: 0, moPayment: 0, ownUse: 0 });
+
   return (
     <div className="min-h-screen p-4" style={{
       backgroundImage: 'url("/puma.jpg")',
@@ -327,74 +347,198 @@ const priceData = submissions.map((sub: any) => ({
             </option>
           ))}
         </select>
-        <Button onClick={downloadCSV} className="ml-2">
-          Download CSV
+        <Button onClick={downloadCSV} className="ml-2 flex items-center gap-2">
+          <Download className="w-4 h-4" /> Download CSV
         </Button>
-        <Button onClick={downloadXLS} className="ml-2">
-          Download XLS
+        <Button onClick={downloadXLS} className="ml-2 flex items-center gap-2">
+          <FileText className="w-4 h-4" /> Download XLS
         </Button>
+        
       </div>
       {/* Attendants and Shift Records at the top */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="space-y-2">
-          <h2 className="font-bold text-xl">Attendants</h2>
-          {isLoading && <p>Loading...</p>}
-          {queryError && (
-            <p className="text-red-600">Error loading summaries</p>
-          )}
-          {filteredRecords.length === 0 ? (
-            <p className="text-white">No attendants for this day.</p>
-          ) : (
-            Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id))).map((attendantName) => (
-              <Card
-                key={attendantName}
-                onClick={() => setSelected(selected === attendantName ? null : attendantName)}
-                className={cn(
-                  "p-3 cursor-pointer",
-                  selected === attendantName && "border-2 border-blue-500"
-                )}
-              >
-                <CardContent>{attendantName}</CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-        <div>
-          <h2 className="font-bold text-xl mb-4">Shift Records</h2>
-          {loading ? (
-            <p>Loading records...</p>
-          ) : error ? (
-            <p className="text-red-600">{error}</p>
-          ) : filteredRecords.length === 0 ? (
-            <p className="text-white">No records for this day.</p>
-          ) : (
-            <div className="space-y-2">
-              {filteredRecords.map((rec, idx) => (
-                <div
-                  key={rec.id || idx}
-                  className="border rounded p-2 bg-white shadow"
+        <Card className="bg-white/50">
+          <CardContent>
+            <h2 className="font-bold text-xl">Attendants</h2>
+            {isLoading && <p>Loading...</p>}
+            {queryError && (
+              <p className="text-red-600">Error loading summaries</p>
+            )}
+            {filteredRecords.length === 0 ? (
+              <p className="text-white">No attendants for this day.</p>
+            ) : (
+              Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id))).map((attendantName) => (
+                <Card
+                  key={attendantName}
+                  onClick={() => setSelected(selected === attendantName ? null : attendantName)}
+                  className={cn(
+                    "p-3 cursor-pointer bg-white/50",
+                    selected === attendantName && "border-2 border-blue-500"
+                  )}
                 >
-                  <div className="font-semibold">
-                    Attendant: {rec.attendant?.username || rec.attendant_id}
-                  </div>
-                  <div>Pump: {pumpMap[rec.pump_id] || rec.pump_id}</div>
-                  <div>Shift: {rec.shift_type}</div>
-                  <div>Date: {rec.shift_date}</div>
-                  <div>
-                    Opening: {rec.opening_reading.toLocaleString()} | Closing: {rec.closing_reading.toLocaleString()}
-                  </div>
-                  <div>
-                    Cash: {rec.cash_received.toLocaleString()} | Prepaid: {rec.prepayment_received.toLocaleString()} | Credit: {rec.credit_received.toLocaleString()}
-                  </div>
-                  <div>
-                    Expected: {((rec.closing_reading - rec.opening_reading) * (rec.fuel_price || 0)).toLocaleString()} MWK
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                  <CardContent>{attendantName}</CardContent>
+                </Card>
+              ))
+            )}
+          </CardContent>
+        </Card>
+        <Card className="bg-white/50">
+          <CardContent>
+            <h2 className="font-bold text-xl mb-4">Shift Records</h2>
+            {loading ? (
+              <p>Loading records...</p>
+            ) : error ? (
+              <p className="text-red-600">{error}</p>
+            ) : filteredRecords.length === 0 ? (
+              <p className="text-white">No records for this day.</p>
+            ) : (
+              <div className="space-y-2">
+                {filteredRecords.map((submission, idx) => (
+                  <details key={submission.id || idx} className="mb-2 rounded-xl bg-white/70 shadow p-4 transition-all">
+                    <summary className="cursor-pointer text-lg font-bold text-blue-700 flex items-center gap-2">
+                      <User className="w-5 h-5 text-blue-400" />
+                      Attendant: {submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}
+                      <ChevronDown className="ml-2 w-4 h-4 text-gray-400" />
+                      <span className="text-base font-normal text-gray-500 ml-2">
+                        <Fuel className="inline w-4 h-4 text-green-400 mr-1" />
+                        {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || '?'}
+                        , {submission.shift_type}, {submission.shift_date}
+                      </span>
+                    </summary>
+                    <div className="mt-3 space-y-1 text-base">
+                      <p><CreditCard className="inline w-4 h-4 text-yellow-500 mr-1" /> Cash: <span className="font-bold text-gray-900">{submission.cash_received} MWK</span></p>
+                      <p><CreditCard className="inline w-4 h-4 text-green-500 mr-1" /> Prepaid: <span className="font-bold text-gray-900">{submission.prepayment_received} MWK</span></p>
+                      <p><CreditCard className="inline w-4 h-4 text-blue-500 mr-1" /> Credit: <span className="font-bold text-gray-900">{submission.credit_received} MWK</span></p>
+                      <p>Fuel Card: <span className="font-bold text-gray-900">{submission.fuel_card_received || 0} MWK</span></p>
+                      <p>FDH Card: <span className="font-bold text-gray-900">{submission.fdh_card_received || 0} MWK</span></p>
+                      <p>National Bank Card: <span className="font-bold text-gray-900">{submission.national_bank_card_received || 0} MWK</span></p>
+                      <p>MO Payment: <span className="font-bold text-gray-900">{submission.mo_payment_received || 0} MWK</span></p>
+                      <p>Own Use Total: <span className="font-bold text-gray-900">{submission.own_use_total || 0} MWK</span></p>
+                      {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
+                        <div>
+                          <p className="font-semibold mt-2">Own Use Details:</p>
+                          <ul className="ml-4 list-disc">
+                            {submission.own_use.map((item: any, idx: number) => (
+                              <li key={idx}>{item.description || 'Own Use'}: {item.amount} L</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {typeof submission.overage === 'number' && (
+                        <p className="text-green-600 font-bold flex items-center"><TrendingUp className="w-4 h-4 mr-1" /> Overage: +{submission.overage} MWK</p>
+                      )}
+                      {typeof submission.shortage === 'number' && (
+                        <p className="text-red-600 font-bold flex items-center"><TrendingDown className="w-4 h-4 mr-1" /> Shortage: {submission.shortage} MWK</p>
+                      )}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+      {/* Attendant summary after records */}
+      {attendant && selected && (
+        <Card className="bg-white/50 p-6 shadow-lg border border-blue-200 mb-8 rounded-2xl">
+          <CardContent className="space-y-3 p-4 rounded-xl">
+            <h2 className="font-bold text-2xl mb-3 flex items-center gap-2 text-blue-800">
+              <User className="w-7 h-7 text-blue-400" /> Summary for {attendant.attendantName}
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+              <div className="flex flex-col items-center bg-white/80 rounded-xl p-3 shadow">
+                <span className="text-gray-500 text-xs">Shift</span>
+                <span className="font-semibold text-blue-700 text-lg">{attendant.shift}</span>
+              </div>
+              <div className="flex flex-col items-center bg-white/80 rounded-xl p-3 shadow">
+                <span className="text-gray-500 text-xs">Date</span>
+                <span className="font-semibold text-blue-700 text-lg">{attendant.date}</span>
+              </div>
+              <div className="flex flex-col items-center bg-white/80 rounded-xl p-3 shadow">
+                <span className="text-gray-500 text-xs">Opening Total</span>
+                <span className="font-semibold text-blue-700 text-lg">{attendant.openingTotal.toLocaleString()} MWK</span>
+              </div>
+              <div className="flex flex-col items-center bg-white/80 rounded-xl p-3 shadow">
+                <span className="text-gray-500 text-xs">Closing Total</span>
+                <span className="font-semibold text-blue-700 text-lg">{attendant.closingTotal.toLocaleString()} MWK</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+              <div className="flex flex-col items-center bg-blue-50 rounded-xl p-3 shadow">
+                <CreditCard className="text-yellow-500 mb-1" />
+                <span className="text-gray-500 text-xs">Cash</span>
+                <span className="font-bold text-lg">{attendant.cashTotal?.toLocaleString() ?? 0} MWK</span>
+              </div>
+              <div className="flex flex-col items-center bg-green-50 rounded-xl p-3 shadow">
+                <CreditCard className="text-green-500 mb-1" />
+                <span className="text-gray-500 text-xs">Prepaid</span>
+                <span className="font-bold text-lg">{attendant.prepaids.reduce((sum: number, p: any) => sum + (p.amount || 0), 0).toLocaleString()} MWK</span>
+              </div>
+              <div className="flex flex-col items-center bg-blue-100 rounded-xl p-3 shadow">
+                <CreditCard className="text-blue-500 mb-1" />
+                <span className="text-gray-500 text-xs">Credit</span>
+                <span className="font-bold text-lg">{attendant.credits.reduce((sum: number, c: any) => sum + (c.amount || 0), 0).toLocaleString()} MWK</span>
+              </div>
+              <div className="flex flex-col items-center bg-purple-50 rounded-xl p-3 shadow">
+                <CreditCard className="text-purple-500 mb-1" />
+                <span className="text-gray-500 text-xs">Fuel Card</span>
+                <span className="font-bold text-lg">{attendant.fuel_card_received?.toLocaleString() ?? 0} MWK</span>
+              </div>
+              <div className="flex flex-col items-center bg-pink-50 rounded-xl p-3 shadow">
+                <CreditCard className="text-pink-500 mb-1" />
+                <span className="text-gray-500 text-xs">FDH Card</span>
+                <span className="font-bold text-lg">{attendant.fdh_card_received?.toLocaleString() ?? 0} MWK</span>
+              </div>
+              <div className="flex flex-col items-center bg-indigo-50 rounded-xl p-3 shadow">
+                <CreditCard className="text-indigo-500 mb-1" />
+                <span className="text-gray-500 text-xs">National Bank Card</span>
+                <span className="font-bold text-lg">{attendant.national_bank_card_received?.toLocaleString() ?? 0} MWK</span>
+              </div>
+              <div className="flex flex-col items-center bg-red-50 rounded-xl p-3 shadow">
+                <CreditCard className="text-red-500 mb-1" />
+                <span className="text-gray-500 text-xs">MO Payment</span>
+                <span className="font-bold text-lg">{attendant.mo_payment_received?.toLocaleString() ?? 0} MWK</span>
+              </div>
+              <div className="flex flex-col items-center bg-gray-100 rounded-xl p-3 shadow">
+                <CreditCard className="text-gray-700 mb-1" />
+                <span className="text-gray-500 text-xs">Own Use Total</span>
+                <span className="font-bold text-lg">{attendant.own_use_total?.toLocaleString() ?? 0} MWK</span>
+              </div>
+            </div>
+            <div className="bg-white/50 rounded-xl p-4 mt-2 flex flex-col gap-2">
+              <p className="font-semibold text-blue-700 mb-1">Expected Return: <span className="font-bold">{attendant.expectedTotal.toLocaleString()} MWK</span></p>
+              {/* Overage/Shortage visually highlighted */}
+              {typeof attendant.difference === 'number' && (
+                <p className={attendant.difference >= 0 ? "text-green-600 font-bold flex items-center" : "text-red-600 font-bold flex items-center"}>
+                  {attendant.difference >= 0 ? <TrendingUp className="w-5 h-5 mr-1" /> : <TrendingDown className="w-5 h-5 mr-1" />}
+                  {attendant.difference >= 0 ? `Overage: +${attendant.difference.toLocaleString()} MWK` : `Shortage: ${attendant.difference.toLocaleString()} MWK`}
+                </p>
+              )}
+              {/* List details for Prepaid and Credit if present */}
+              {attendant.prepaids.length > 0 && (
+                <>
+                  <p className="font-semibold mt-2">Prepaid Details:</p>
+                  <ul className="ml-4 list-disc">
+                    {attendant.prepaids.map((p: any, idx: number) => (
+                      <li key={idx}>{p.name} - {p.amount.toLocaleString()} MWK</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {attendant.credits.length > 0 && (
+                <>
+                  <p className="font-semibold mt-2">Credit Details:</p>
+                  <ul className="ml-4 list-disc">
+                    {attendant.credits.map((c: any, idx: number) => (
+                      <li key={idx}>{c.name} - {c.amount.toLocaleString()} MWK</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Charts and summary cards below */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
         <Card className="bg-white/50">
@@ -405,22 +549,23 @@ const priceData = submissions.map((sub: any) => ({
                 <span className="text-white">No data</span>
               ) : (
                 (() => {
-                  const maxValue = Math.max(...graphData.map(([, value]) => value));
+                  const maxValue = Math.max(...graphData.map(([, value]) => Number(value)));
                   const maxHeight = 140;
                   return graphData.map(([name, value]) => (
                     <div key={name} className="flex flex-col items-center">
                       <div
                         className="bg-blue-500 w-8 transition-all duration-300"
                         style={{
-                          height: maxValue > 0 ? `${Math.max(10, (value / maxValue) * maxHeight)}px` : '10px',
+                          height: maxValue > 0 ? `${Math.max(10, (Number(value) / maxValue) * maxHeight)}px` : '10px',
                         }}
-                        title={value.toLocaleString() + " MWK"}
+                        title={Number(value).toLocaleString() + " MWK"}
                       ></div>
                       <span className="text-xs mt-1">{name}</span>
+                      <span className="text-xs font-bold">{Number(value).toLocaleString()}</span>
                     </div>
                   ));
-                })()
-              )}
+                })
+              ())}
             </div>
           </CardContent>
         </Card>
@@ -521,47 +666,98 @@ const priceData = submissions.map((sub: any) => ({
           </CardContent>
         </Card>
       </div>
-      {attendant && selected && (
-        <div className="space-y-2">
-          <h2 className="font-bold text-xl mb-2">
-            Summary for {attendant.attendantName}
-          </h2>   
-          <Card className="p-4 shadow border border-gray-200">
-            <CardContent className="space-y-2 p-4 bg-gray-50 rounded-lg"><p>Shift: {attendant.shift}</p>
-              <p>Date: {attendant.date}</p>
-              <p>Opening Total: {attendant.openingTotal.toLocaleString()} MWK</p>
-              <p>Closing Total: {attendant.closingTotal.toLocaleString()} MWK</p>
-              <p>Expected Return: {attendant.expectedTotal.toLocaleString()} MWK</p>
-              <p>Cash Collected: {attendant.cashTotal.toLocaleString()} MWK</p>
-              <p>Prepaid:</p>
-              <ul className="ml-4 list-disc">
-                {attendant.prepaids.map((p: any, idx: number) => (
-                  <li key={idx}>
-                    {p.name} - {p.amount.toLocaleString()} MWK
-                  </li>
-                ))}
-              </ul>
-              <p>Credit:</p>
-              <ul className="ml-4 list-disc">
-                {attendant.credits.map((c: any, idx: number) => (
-                  <li key={idx}>
-                    {c.name} - {c.amount.toLocaleString()} MWK
-                  </li>
-                ))}
-              </ul>
-              <p
-                className={attendant.difference >= 0
-                  ? "text-green-600"
-                  : "text-red-600"}
-              >
-                {attendant.difference >= 0
-                  ? `Overage: +${attendant.difference.toLocaleString()}`
-                  : `Shortage: ${attendant.difference.toLocaleString()}`}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Summary Analytics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <Card className="bg-white/70 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <BarChart2 className="text-blue-500 mb-2" size={32} />
+            <div className="text-2xl font-bold">{totalRevenue.toLocaleString()} MWK</div>
+            <div className="text-gray-600">Total Revenue</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/70 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <Fuel className="text-green-500 mb-2" size={32} />
+            <div className="text-2xl font-bold">{totalVolume.toLocaleString()} L</div>
+            <div className="text-gray-600">Total Volume</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/70 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <TrendingUp className="text-green-600 mb-2" size={32} />
+            <div className="text-xl font-bold">Avg Overage</div>
+            <div className="text-lg text-green-700">+{avgOverage.toLocaleString()} MWK</div>
+            <div className="text-gray-600">Avg per Shift</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/70 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <TrendingDown className="text-red-600 mb-2" size={32} />
+            <div className="text-xl font-bold">Avg Shortage</div>
+            <div className="text-lg text-red-700">{avgShortage.toLocaleString()} MWK</div>
+            <div className="text-gray-600">Avg per Shift</div>
+          </CardContent>
+        </Card>
+      </div>
+      {/* Payment Type Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card className="bg-white/80 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <CreditCard className="text-yellow-500 mb-2" size={32} />
+            <div className="text-xl font-bold">Cash</div>
+            <div className="text-2xl font-bold">{summaryTotals.cash.toLocaleString()} MWK</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/80 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <CreditCard className="text-green-500 mb-2" size={32} />
+            <div className="text-xl font-bold">Prepaid</div>
+            <div className="text-2xl font-bold">{summaryTotals.prepaid.toLocaleString()} MWK</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/80 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <CreditCard className="text-blue-500 mb-2" size={32} />
+            <div className="text-xl font-bold">Credit</div>
+            <div className="text-2xl font-bold">{summaryTotals.credit.toLocaleString()} MWK</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/80 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <CreditCard className="text-purple-500 mb-2" size={32} />
+            <div className="text-xl font-bold">Fuel Card</div>
+            <div className="text-2xl font-bold">{summaryTotals.fuelCard.toLocaleString()} MWK</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/80 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <CreditCard className="text-pink-500 mb-2" size={32} />
+            <div className="text-xl font-bold">FDH Card</div>
+            <div className="text-2xl font-bold">{summaryTotals.fdhCard.toLocaleString()} MWK</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/80 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <CreditCard className="text-indigo-500 mb-2" size={32} />
+            <div className="text-xl font-bold">National Bank Card</div>
+            <div className="text-2xl font-bold">{summaryTotals.nationalBankCard.toLocaleString()} MWK</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/80 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <CreditCard className="text-red-500 mb-2" size={32} />
+            <div className="text-xl font-bold">MO Payment</div>
+            <div className="text-2xl font-bold">{summaryTotals.moPayment.toLocaleString()} MWK</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/80 shadow border border-gray-200 flex flex-col items-center justify-center p-4">
+          <CardContent className="flex flex-col items-center">
+            <CreditCard className="text-gray-700 mb-2" size={32} />
+            <div className="text-xl font-bold">Own Use Total</div>
+            <div className="text-2xl font-bold">{summaryTotals.ownUse.toLocaleString()} MWK</div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

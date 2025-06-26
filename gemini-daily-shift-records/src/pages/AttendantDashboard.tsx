@@ -135,10 +135,34 @@ function removeOwnUseEntry(idx: number) {
     setLocation('/');
   };
 
-    const submitShift = useMutation({
+    // Add a state to track submitted pumps for the day
+const [submittedPumps, setSubmittedPumps] = useState<string[]>([]);
+
+// Fetch already submitted pumps for this attendant, date, and shift
+useEffect(() => {
+  async function fetchSubmittedPumps() {
+    if (!user) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data, error } = await supabase
+      .from('shifts')
+      .select('pump_id')
+      .eq('attendant_id', user.id)
+      .eq('shift_date', today)
+      .eq('shift_type', shift); // Only consider current shift type
+    if (!error && data) {
+      setSubmittedPumps(data.map((row: any) => String(row.pump_id)));
+    }
+  }
+  fetchSubmittedPumps();
+}, [user, submitted, shift]);
+
+  const submitShift = useMutation({
     mutationFn: async () => {
       if (!selectedPump) throw new Error('No pump selected');
       if (!user) throw new Error('User not logged in');
+      if (submittedPumps.includes(String(selectedPump.id))) {
+        throw new Error('You have already submitted for this pump today.');
+      }
       if (isNaN(reading.opening) || isNaN(reading.closing)) {
         throw new Error('Invalid meter readings');
       }
@@ -165,15 +189,44 @@ function removeOwnUseEntry(idx: number) {
         fdh_card_received: fdhCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
         national_bank_card_received: nationalBankCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
         mo_payment_received: moPayments.reduce((sum, m) => sum + Number(m.amount || 0), 0),
-        own_use: ownUseEntries.map(entry => ({ ...entry })),
-        own_use_total: ownUseEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0),
       };
 
       console.log("Submitting payload:", payload);  
-      const { error } = await supabase.from('shifts').insert([payload]);
+      const { data: shiftInsertResult, error } = await supabase.from('shifts').insert([payload]).select('id');
       if (error) {
         console.error("Supabase insert error:", error);
         throw error;
+      }
+
+      // Submit each own use entry individually to the 'own_use' table, linked to the shift
+      if (shiftInsertResult && shiftInsertResult.length > 0) {
+        const shiftId = shiftInsertResult[0].id;
+        for (const entry of ownUseEntries) {
+          const ownUsePayload = {
+            shift_id: shiftId,
+            type: entry.type,
+            ...(entry.type === 'vehicle' ? {
+              registration: entry.registration,
+              volume: entry.volume,
+              amount: entry.amount
+            } : {}),
+            ...(entry.type === 'genset' ? {
+              hours: entry.hours,
+              volume: entry.volume,
+              amount: entry.amount
+            } : {}),
+            ...(entry.type === 'lawnmower' ? {
+              gardener: entry.gardener,
+              volume: entry.volume,
+              amount: entry.amount
+            } : {})
+          };
+          const { error: ownUseError } = await supabase.from('own_use').insert([ownUsePayload]);
+          if (ownUseError) {
+            console.error('Own use insert error:', ownUseError);
+            // Optionally, you can throw or continue
+          }
+        }
       }
 
       return true;
@@ -327,8 +380,8 @@ useEffect(() => {
         </SelectTrigger>
         <SelectContent>
           {pumps.map(p => (
-            <SelectItem key={String(p.id)} value={String(p.id)}>
-              {p.name}
+            <SelectItem key={String(p.id)} value={String(p.id)} disabled={submittedPumps.includes(String(p.id))}>
+              {p.name} {submittedPumps.includes(String(p.id)) && '(Already submitted)'}
             </SelectItem>
           ))}
         </SelectContent>
