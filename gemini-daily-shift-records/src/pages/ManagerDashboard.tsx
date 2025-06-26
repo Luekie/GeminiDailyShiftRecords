@@ -75,6 +75,7 @@ export default function ManagerDashboard() {
   const [attendants, setAttendants] = useState<any[]>([]);
   const [selectedAttendant, setSelectedAttendant] = useState<string>("");
   const [pumpMap, setPumpMap] = useState<Record<string, string>>({});
+  const [selectedRecords, setSelectedRecords] = useState<Set<string | number>>(new Set());
 
   const { data: summaries, isLoading, error: queryError } = useQuery({
     queryKey: ["manager", shift],
@@ -287,6 +288,30 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
   return acc;
 }, { cash: 0, prepaid: 0, credit: 0, fuelCard: 0, fdhCard: 0, nationalBankCard: 0, moPayment: 0, ownUse: 0 });
 
+  const handleSelectRecord = (id: string | number, checked: boolean) => {
+    setSelectedRecords(prev => {
+      const newSet = new Set(prev);
+      if (checked) newSet.add(id);
+      else newSet.delete(id);
+      return newSet;
+    });
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedRecords.size === 0) return;
+    if (!window.confirm('Are you sure you want to delete the selected records?')) return;
+    setLoading(true);
+    const ids = Array.from(selectedRecords);
+    const { error } = await supabase.from('shifts').delete().in('id', ids);
+    if (error) {
+      alert('Failed to delete records: ' + error.message);
+    } else {
+      setRecords(records.filter(r => !selectedRecords.has(r.id)));
+      setSelectedRecords(new Set());
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen p-4" style={{
       backgroundImage: 'url("/puma.jpg")',
@@ -379,12 +404,16 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
                   <CardContent>{attendantName}</CardContent>
                 </Card>
               ))
-            )}
+            ) }
           </CardContent>
         </Card>
         <Card className="bg-white/50">
           <CardContent>
-            <h2 className="font-bold text-xl mb-4">Shift Records</h2>
+            <h2 className="font-bold text-xl mb-4 flex items-center gap-4">Shift Records
+              {selectedRecords.size > 0 && (
+                <Button onClick={handleDeleteSelected} className="ml-4 bg-red-600 hover:bg-red-700 text-white">Delete Selected</Button>
+              )}
+            </h2>
             {loading ? (
               <p>Loading records...</p>
             ) : error ? (
@@ -396,6 +425,13 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
                 {filteredRecords.map((submission, idx) => (
                   <details key={submission.id || idx} className="mb-2 rounded-xl bg-white/70 shadow p-4 transition-all">
                     <summary className="cursor-pointer text-lg font-bold text-blue-700 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="mr-2"
+                        checked={selectedRecords.has(submission.id)}
+                        onChange={e => handleSelectRecord(submission.id, e.target.checked)}
+                        onClick={e => e.stopPropagation()}
+                      />
                       <User className="w-5 h-5 text-blue-400" />
                       Attendant: {submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}
                       <ChevronDown className="ml-2 w-4 h-4 text-gray-400" />
