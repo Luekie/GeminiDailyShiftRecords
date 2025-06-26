@@ -62,7 +62,7 @@ const fetchSummaries = async (shift: string) => {
 export default function ManagerDashboard() {
   const user = useAtomValue(userAtom);
   const [, setLocation] = useLocation();
-  const [shift, setShift] = useState("day");
+  const [shift, setShift] = useState("all");
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -77,8 +77,9 @@ export default function ManagerDashboard() {
 
   const { data: summaries, isLoading, error: queryError } = useQuery({
     queryKey: ["manager", shift],
-    queryFn: () => fetchSummaries(shift),
-
+    queryFn: () => shift === "all"
+      ? Promise.all([fetchSummaries("day"), fetchSummaries("night")]).then(arr => arr.flat())
+      : fetchSummaries(shift),
   });
 const COLORS = [
   '#007aff', '#34c759', '#ff9500', '#ff2d55',
@@ -267,12 +268,12 @@ const priceData = submissions.map((sub: any) => ({
   const attendant = summaries?.find((s: any) => s.attendantName === selected);
 
   return (
-    <><div className="min-h-screen p-4" style={{
-        backgroundImage: 'url("/puma.jpg")', // Replace with your image path
-    backgroundSize: 'cover', // Ensures the image covers the entire screen
-    backgroundPosition: 'center', // Centers the image
-    backgroundRepeat: 'no-repeat',
-    backgroundAttachment: 'fixed',
+    <div className="min-h-screen p-4" style={{
+      backgroundImage: 'url("/puma.jpg")',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
       fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
       color: '#111',
     }}>
@@ -292,30 +293,32 @@ const priceData = submissions.map((sub: any) => ({
           Log Out
         </Button>
       </div>
-      <Select onValueChange={(val) => setShift(val)} defaultValue="day">
-        <SelectTrigger className="w-40">
-          {shift.toUpperCase()} Shift
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="day">Day</SelectItem>
-          <SelectItem value="night">Night</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <div className="flex items-center gap-4 mb-4">
-        <label className="font-semibold" style={{ color: '#333' }}>Select Date:</label>
+      {/* Filter Bar: Shift, Date, Attendant, Export */}
+      <div className="flex flex-wrap items-center gap-4 mb-6 bg-white/50 rounded-lg p-3 shadow">
+        <label className="font-semibold" style={{ color: '#333' }}>Shift:</label>
+        <Select onValueChange={(val) => setShift(val)} value={shift}>
+          <SelectTrigger className="w-32">
+            {shift === "all" ? "All Shifts" : shift.toUpperCase() + " Shift"}
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="day">Day</SelectItem>
+            <SelectItem value="night">Night</SelectItem>
+          </SelectContent>
+        </Select>
+        <label className="font-semibold ml-2" style={{ color: '#333' }}>Date:</label>
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="border rounded px-2 py-1" />
-        <label className="font-semibold ml-4" style={{ color: '#333' }}>
+          className="border rounded px-2 py-1 w-40" />
+        <label className="font-semibold ml-2" style={{ color: '#333' }}>
           Attendant:
         </label>
         <select
           value={selectedAttendant}
           onChange={(e) => setSelectedAttendant(e.target.value)}
-          className="border rounded px-2 py-1"
+          className="border rounded px-2 py-1 w-40"
         >
           <option value="">All</option>
           {attendants.map((a) => (
@@ -324,60 +327,15 @@ const priceData = submissions.map((sub: any) => ({
             </option>
           ))}
         </select>
-        <Button onClick={downloadCSV} className="ml-4">
+        <Button onClick={downloadCSV} className="ml-2">
           Download CSV
         </Button>
-        <Button onClick={downloadXLS} className="ml-4">
+        <Button onClick={downloadXLS} className="ml-2">
           Download XLS
         </Button>
       </div>
-      {/* Simple bar graph */}
-      <div className="mb-4">
-        <h3 className="font-semibold mb-2">
-          Performance (Total Collected per Attendant)
-        </h3>
-        <div className="flex items-end gap-4 h-40">
-          {graphData.length === 0 ? (
-            <span className="text-gray-400">No data</span>
-          ) : (
-            (() => {
-              const maxValue = Math.max(...graphData.map(([, value]) => value));
-              const maxHeight = 140; // px, matches h-40
-              return graphData.map(([name, value]) => (
-                <div key={name} className="flex flex-col items-center">
-                  <div
-                    className="bg-blue-500 w-8 transition-all duration-300"
-                    style={{
-                      height: maxValue > 0 ? `${Math.max(10, (value / maxValue) * maxHeight)}px` : '10px',
-                    }}
-                    title={value.toLocaleString() + " MWK"}
-                  ></div>
-                  <span className="text-xs mt-1">{name}</span>
-                </div>
-              ));
-            })()
-          )}
-        </div>
-      </div>
-      {/* Sales line graph */}
-      <div className="mb-4">
-        <h3 className="font-semibold mb-2">Sales Graph (Total Collected per Attendant per Date)</h3>
-        <div className="w-full h-64 bg-white rounded shadow p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={salesGraphData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id))).map((a, idx) => (
-                <Line key={a} type="monotone" dataKey={a} stroke={`hsl(${(idx * 60) % 360}, 70%, 50%)`} strokeWidth={2} dot={false} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
+      {/* Attendants and Shift Records at the top */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="space-y-2">
           <h2 className="font-bold text-xl">Attendants</h2>
           {isLoading && <p>Loading...</p>}
@@ -385,7 +343,7 @@ const priceData = submissions.map((sub: any) => ({
             <p className="text-red-600">Error loading summaries</p>
           )}
           {filteredRecords.length === 0 ? (
-            <p className="text-gray-500">No attendants for this day.</p>
+            <p className="text-white">No attendants for this day.</p>
           ) : (
             Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id))).map((attendantName) => (
               <Card
@@ -401,61 +359,173 @@ const priceData = submissions.map((sub: any) => ({
             ))
           )}
         </div>
-        {/* End attendants list */}
-        <PieChart width={300} height={300}>
-          <Pie
-            data={volumeData}
-            dataKey="value"
-            nameKey="name"
-            label
-          >
-            {volumeData.map((_entry: any, idx: number) => (
-              <Cell key={`cell-vol-${idx}`} fill={COLORS[idx % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip />
-        </PieChart>
+        <div>
+          <h2 className="font-bold text-xl mb-4">Shift Records</h2>
+          {loading ? (
+            <p>Loading records...</p>
+          ) : error ? (
+            <p className="text-red-600">{error}</p>
+          ) : filteredRecords.length === 0 ? (
+            <p className="text-white">No records for this day.</p>
+          ) : (
+            <div className="space-y-2">
+              {filteredRecords.map((rec, idx) => (
+                <div
+                  key={rec.id || idx}
+                  className="border rounded p-2 bg-white shadow"
+                >
+                  <div className="font-semibold">
+                    Attendant: {rec.attendant?.username || rec.attendant_id}
+                  </div>
+                  <div>Pump: {pumpMap[rec.pump_id] || rec.pump_id}</div>
+                  <div>Shift: {rec.shift_type}</div>
+                  <div>Date: {rec.shift_date}</div>
+                  <div>
+                    Opening: {rec.opening_reading.toLocaleString()} | Closing: {rec.closing_reading.toLocaleString()}
+                  </div>
+                  <div>
+                    Cash: {rec.cash_received.toLocaleString()} | Prepaid: {rec.prepayment_received.toLocaleString()} | Credit: {rec.credit_received.toLocaleString()}
+                  </div>
+                  <div>
+                    Expected: {((rec.closing_reading - rec.opening_reading) * (rec.fuel_price || 0)).toLocaleString()} MWK
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-
-      <PieChart width={300} height={300}>
-        <Pie
-          data={priceData}
-          dataKey="value"
-          nameKey="name"
-          label
-        >
-          {priceData.map((_entry: any, idx: number) => (
-            <Cell key={`cell-price-${idx}`} fill={COLORS[idx % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip />
-      </PieChart>
-
-      <RadialBarChart
-        width={200}
-        height={200}
-        cx={100}
-        cy={100}
-        innerRadius={80}
-        outerRadius={100}
-        barSize={20}
-        data={[{ name: 'Completion', value: completionPercent }]}
-        startAngle={90}
-        endAngle={-270}
-      >
-        <RadialBar
-          background
-          dataKey="value"
-          fill="#007aff" />
-        <Tooltip />
-      </RadialBarChart>
-
-      <div className="text-center mt-2 font-bold text-lg">{Math.round(completionPercent)}% Complete</div>
+      {/* Charts and summary cards below */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+        <Card className="bg-white/50">
+          <CardContent>
+            <h3 className="font-semibold mb-2">Performance (Total Collected per Attendant)</h3>
+            <div className="flex items-end gap-4 h-40">
+              {graphData.length === 0 ? (
+                <span className="text-white">No data</span>
+              ) : (
+                (() => {
+                  const maxValue = Math.max(...graphData.map(([, value]) => value));
+                  const maxHeight = 140;
+                  return graphData.map(([name, value]) => (
+                    <div key={name} className="flex flex-col items-center">
+                      <div
+                        className="bg-blue-500 w-8 transition-all duration-300"
+                        style={{
+                          height: maxValue > 0 ? `${Math.max(10, (value / maxValue) * maxHeight)}px` : '10px',
+                        }}
+                        title={value.toLocaleString() + " MWK"}
+                      ></div>
+                      <span className="text-xs mt-1">{name}</span>
+                    </div>
+                  ));
+                })()
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/50">
+          <CardContent>
+            <h3 className="font-semibold mb-2">Sales Graph (Total Collected per Attendant per Date)</h3>
+            <div className="w-full h-64 rounded shadow p-2">
+              {salesGraphData.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">No data available</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={salesGraphData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    {Array.from(new Set(filteredRecords.map(r => r.attendant?.username || r.attendant_id))).map((a, idx) => (
+                      <Line key={a} type="monotone" dataKey={a} stroke={`hsl(${(idx * 60) % 360}, 70%, 50%)`} strokeWidth={2} dot={false} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+        <Card className="bg-white/50">
+          <CardContent>
+            {volumeData.length === 0 ? (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">No data available</div>
+            ) : (
+              <PieChart width={300} height={300}>
+                <Pie
+                  data={volumeData}
+                  dataKey="value"
+                  nameKey="name"
+                  label
+                >
+                  {volumeData.map((_entry: any, idx: number) => (
+                    <Cell key={`cell-vol-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            )}
+            <div className="text-center font-semibold mt-2">Volume by Pump/Attendant</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/50">
+          <CardContent>
+            {priceData.length === 0 ? (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">No data available</div>
+            ) : (
+              <PieChart width={300} height={300}>
+                <Pie
+                  data={priceData}
+                  dataKey="value"
+                  nameKey="name"
+                  label
+                >
+                  {priceData.map((_entry: any, idx: number) => (
+                    <Cell key={`cell-price-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            )}
+            <div className="text-center font-semibold mt-2">Revenue by Pump/Attendant</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/50">
+          <CardContent>
+            {completionPercent === 0 ? (
+              <div className="flex items-center justify-center h-[200px] text-gray-500">No data available</div>
+            ) : (
+              <RadialBarChart
+                width={200}
+                height={200}
+                cx={100}
+                cy={100}
+                innerRadius={80}
+                outerRadius={100}
+                barSize={20}
+                data={[{ name: 'Completion', value: completionPercent }]}
+                startAngle={90}
+                endAngle={-270}
+              >
+                <RadialBar
+                  background
+                  dataKey="value"
+                  fill="#007aff" />
+                <Tooltip />
+              </RadialBarChart>
+            )}
+            <div className="text-center font-semibold mt-2">{Math.round(completionPercent)}% Complete</div>
+          </CardContent>
+        </Card>
+      </div>
       {attendant && selected && (
         <div className="space-y-2">
           <h2 className="font-bold text-xl mb-2">
             Summary for {attendant.attendantName}
-          </h2>
+          </h2>   
           <Card className="p-4 shadow border border-gray-200">
             <CardContent className="space-y-2 p-4 bg-gray-50 rounded-lg"><p>Shift: {attendant.shift}</p>
               <p>Date: {attendant.date}</p>
@@ -492,42 +562,6 @@ const priceData = submissions.map((sub: any) => ({
           </Card>
         </div>
       )}
-    {/* </div>
-    <div className="p-4 mt-8"> */}
-        <h2 className="font-bold text-xl mb-4">Shift Records</h2>
-        {loading ? (
-          <p>Loading records...</p>
-        ) : error ? (
-          <p className="text-red-600">{error}</p>
-        ) : filteredRecords.length === 0 ? (
-          <p className="text-gray-500">No records for this day.</p>
-        ) : (
-          <div className="space-y-2">
-            {filteredRecords.map((rec, idx) => (
-              <div
-                key={rec.id || idx}
-                className="border rounded p-2 bg-white shadow"
-              >
-                <div className="font-semibold">
-                  Attendant: {rec.attendant?.username || rec.attendant_id}
-                </div>
-                <div>Pump: {pumpMap[rec.pump_id] || rec.pump_id}</div>
-                <div>Shift: {rec.shift_type}</div>
-                <div>Date: {rec.shift_date}</div>
-                <div>
-                  Opening: {rec.opening_reading.toLocaleString()} | Closing: {rec.closing_reading.toLocaleString()}
-                </div>
-                <div>
-                  Cash: {rec.cash_received.toLocaleString()} | Prepaid: {rec.prepayment_received.toLocaleString()} | Credit: {rec.credit_received.toLocaleString()}
-                </div>
-                <div>
-                  Expected: {((rec.closing_reading - rec.opening_reading) * (rec.fuel_price || 0)).toLocaleString()} MWK
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
+    </div>
   );
 }
