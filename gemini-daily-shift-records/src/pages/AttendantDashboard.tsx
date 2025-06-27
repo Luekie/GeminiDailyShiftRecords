@@ -328,7 +328,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
 
   return (
 
-    <div className=" relative min-h-screen w-full p-4 space-y-4 ">
+    <div className="flex flex-col relative min-h-screen w-full p-4 space-y-4 ">
 
     
       <div className="flex flex-wrap items-center justify-between gap-2 px-2">
