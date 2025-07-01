@@ -954,57 +954,60 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
       </button>
       {expandedDates[date] && (
         <div className="px-4 pb-2">
-          {(records as any[]).map((s: any) => (
-            <div
-              key={s.id}
-              className="flex items-center justify-between border-b py-2"
-            >
-              <div>
-                <div className="font-medium">
-                  Pump: {s.pump_id} | Shift: {s.shift_type}
+          {(records as any[]).map((s: any) => {
+            const pumpName = pumps.find(p => String(p.id) === String(s.pump_id))?.name || s.pump_id;
+            return (
+              <div
+                key={s.id}
+                className="flex items-center justify-between border-b py-2"
+              >
+                <div>
+                  <div className="font-medium">
+                    Pump: {pumpName} | Shift: {s.shift_type}
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Volume: {(s.closing_reading - s.opening_reading).toLocaleString()}L
+                  </div>
                 </div>
-                <div className="text-xs text-gray-600">
-                  Volume: {(s.closing_reading - s.opening_reading).toLocaleString()}L
+                <div className="flex items-center gap-2">
+                  {/* Approval/Fix Status */}
+                  {s.is_approved ? (
+                    <span className="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs">Authorised</span>
+                  ) : s.fix_reason && !s.is_approved ? (
+                    <>
+                      <span className="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs">Fix Requested</span>
+                      <Button
+                        className="ml-2 bg-orange-600 text-white px-3 py-0.5 rounded-full text-xs font-semibold"
+                        onClick={async () => {
+                          setShowSubmissions(false); // Hide submissions section
+                          setSelectedPumpId(String(s.pump_id));
+                          setShift(s.shift_type);
+                          setReading({ opening: s.opening_reading, closing: s.closing_reading });
+                          // Mark as fixed in DB by clearing fix_reason and is_fixed, set to pending
+                          await supabase.from('shifts').update({ is_approved: false, fix_reason: null }).eq('id', s.id);
+                          // Refetch submissions
+                          if (!user) return;
+                          const { data, error } = await supabase
+                            .from('shifts')
+                            .select('*')
+                            .eq('attendant_id', user.id)
+                            .order('shift_date', { ascending: false });
+                          if (!error && data) {
+                            setSubmissions(data);
+                            setFixNotifications(data.filter((row: any) => row.fix_reason && !row.is_approved));
+                          }
+                        }}
+                      >
+                        Fix
+                      </Button>
+                    </>
+                  ) : (
+                    <span className="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs">Pending</span>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Approval/Fix Status */}
-                {s.is_approved ? (
-                  <span className="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs">Authorised</span>
-                ) : s.fix_reason && !s.is_approved ? (
-                  <>
-                    <span className="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs">Fix Requested</span>
-                    <Button
-                      className="ml-2 bg-orange-600 text-white px-3 py-0.5 rounded-full text-xs font-semibold"
-                      onClick={async () => {
-                        setShowSubmissions(false); // Hide submissions section
-                        setSelectedPumpId(String(s.pump_id));
-                        setShift(s.shift_type);
-                        setReading({ opening: s.opening_reading, closing: s.closing_reading });
-                        // Mark as fixed in DB by clearing fix_reason and is_fixed, set to pending
-                        await supabase.from('shifts').update({ is_approved: false, fix_reason: null }).eq('id', s.id);
-                        // Refetch submissions
-                        if (!user) return;
-                        const { data, error } = await supabase
-                          .from('shifts')
-                          .select('*')
-                          .eq('attendant_id', user.id)
-                          .order('shift_date', { ascending: false });
-                        if (!error && data) {
-                          setSubmissions(data);
-                          setFixNotifications(data.filter((row: any) => row.fix_reason && !row.is_approved));
-                        }
-                      }}
-                    >
-                      Fix
-                    </Button>
-                  </>
-                ) : (
-                  <span className="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs">Pending</span>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

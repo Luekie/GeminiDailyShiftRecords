@@ -151,6 +151,29 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending'
     });
   });
 
+  // Helper to calculate expected and collected
+  function getBalance(submission: { closing_reading: any; opening_reading: any; fuel_price: any; cash_received: any; prepayment_received: any; credit_received: any; fuel_card_received: any; fdh_card_received: any; national_bank_card_received: any; mo_payment_received: any; own_use_total: any; }) {
+    const expected = (Number(submission.closing_reading) - Number(submission.opening_reading)) * Number(submission.fuel_price || 0);
+    const collected = Number(submission.cash_received || 0)
+      + Number(submission.prepayment_received || 0)
+      + Number(submission.credit_received || 0)
+      + Number(submission.fuel_card_received || 0)
+      + Number(submission.fdh_card_received || 0)
+      + Number(submission.national_bank_card_received || 0)
+      + Number(submission.mo_payment_received || 0)
+      + Number(submission.own_use_total || 0);
+    let label = 'Balanced';
+    let value = 0;
+    if (collected < expected) {
+      label = 'Shortage';
+      value = expected - collected;
+    } else if (collected > expected) {
+      label = 'Overage';
+      value = collected - expected;
+    }
+    return { label, value, expected, collected };
+  }
+
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p className="text-red-600">Error loading submissions</p>;
 
@@ -233,6 +256,17 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending'
                     <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
                     <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
                     <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
+                    <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
+                    <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
+                    <p>
+                      {getBalance(submission).label !== 'Balanced' ? (
+                        <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                          {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
+                        </span>
+                      ) : (
+                        <span className="text-gray-700 font-bold">Balanced</span>
+                      )}
+                    </p>
                     {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
                       <div className="mt-2">
                         <h4 className="font-semibold">Own Use Details:</h4>
@@ -273,6 +307,17 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending'
                   <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
                   <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
                   <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
+                  <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
+                  <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
+                  <p>
+                    {getBalance(submission).label !== 'Balanced' ? (
+                      <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                        {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
+                      </span>
+                    ) : (
+                      <span className="text-gray-700 font-bold">Balanced</span>
+                    )}
+                  </p>
                   {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
                     <div className="mt-2">
                       <h4 className="font-semibold">Own Use Details:</h4>
@@ -320,6 +365,17 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending'
                   <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
                   <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
                   <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
+                  <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
+                  <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
+                  <p>
+                    {getBalance(submission).label !== 'Balanced' ? (
+                      <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                        {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
+                      </span>
+                    ) : (
+                      <span className="text-gray-700 font-bold">Balanced</span>
+                    )}
+                  </p>
                   {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
                     <div className="mt-2">
                       <h4 className="font-semibold">Own Use Details:</h4>
