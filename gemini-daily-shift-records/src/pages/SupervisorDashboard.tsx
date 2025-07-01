@@ -99,7 +99,7 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending'
     mutationFn: approveSubmission,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["submissions"] });
-      setNotification("Submission approved successfully.");
+      setNotification("Submission Authorised successfully.");
       setTimeout(() => setNotification(""), 2000);
     },
   });
@@ -335,7 +335,7 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending'
                   )}
                   <div className="flex items-center gap-2 mt-4">
                     <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
-                      <Check className="w-4 h-4" /> Approve
+                      <Check className="w-4 h-4" /> Authorise
                     </Button>
                     <Button onClick={() => setModal({ open: true, submission })} className="bg-red-600 hover:bg-red-700 text-white">
                       <X className="w-4 h-4" /> Request Fix
