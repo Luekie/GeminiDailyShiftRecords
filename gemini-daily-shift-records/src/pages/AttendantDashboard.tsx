@@ -45,6 +45,9 @@ const AttendantDashboard = () => {
 
   const selectedPump = pumps.find(p => String(p.id) === selectedPumpId);
   const [submitted, setSubmitted] = useState(false);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+const [expandedDates, setExpandedDates] = useState<{ [date: string]: boolean }>({});
+const [fixNotifications, setFixNotifications] = useState<any[]>([]);
 
   // Own Use Entries State
 type OwnUseEntry =
@@ -118,6 +121,24 @@ function removeOwnUseEntry(idx: number) {
     fetchPumps();
     return () => { mounted = false; };
   }, []);
+
+
+  useEffect(() => {
+  async function fetchSubmissions() {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('attendant_id', user.id)
+      .order('shift_date', { ascending: false });
+    if (!error && data) {
+      setSubmissions(data);
+      // Find submissions with fix requested
+      setFixNotifications(data.filter((s: any) => s.fix_reason && !s.is_fixed));
+    }
+  }
+  fetchSubmissions();
+}, [user, submitted]);
 
   
 
@@ -328,13 +349,41 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
 
   return (
 
-    <div className="flex flex-col relative min-h-screen w-full p-4 space-y-4 ">
+    <div className=" relative min-h-screen w-full p-4 space-y-4 ">
 
     
       <div className="flex flex-wrap items-center justify-between gap-2 px-2">
       <h2 className="text-base font-semibold text-white">
         Welcome, {user?.username || 'Guest'}!
       </h2>
+
+      <div className="relative">
+  <button
+    className="relative"
+    onClick={() => {
+      // Scroll to or open the submissions section
+      document.getElementById('submissions-section')?.scrollIntoView({ behavior: 'smooth' });
+      // Optionally, expand the first fix request
+      if (fixNotifications.length > 0) {
+        setExpandedDates((prev) => ({
+          ...prev,
+          [fixNotifications[0].shift_date]: true,
+        }));
+      }
+    }}
+    title="Fix Requests"
+  >
+    <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
+      <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-5-6.32V4a1 1 0 1 0-2 0v.68C7.63 5.36 6 7.92 6 11v5l-1.29 1.29A1 1 0 0 0 6 19h12a1 1 0 0 0 .71-1.71L18 16z" fill="#f59e42"/>
+    </svg>
+    {fixNotifications.length > 0 && (
+      <span className="absolute top-0 right-0 bg-red-600 text-white rounded-full text-xs px-1.5 py-0.5">
+        {fixNotifications.length}
+      </span>
+    )}
+  </button>
+</div>
+
       <Button
         onClick={handleLogout}
         className=" justify-end bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
@@ -755,6 +804,82 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
           </div>
         </div>
       )}
+
+      {/* --- Submissions Section --- */}
+<div id="submissions-section" className="mt-8">
+  <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
+    <span>My Submissions</span>
+    {fixNotifications.length > 0 && (
+      <span className="bg-red-600 text-white rounded-full text-xs px-2 py-0.5">
+        {fixNotifications.length} Fix Request{fixNotifications.length > 1 ? 's' : ''}
+      </span>
+    )}
+  </h2>
+  {Object.entries(
+    submissions.reduce((acc, s) => {
+      (acc[s.shift_date] = acc[s.shift_date] || []).push(s);
+      return acc;
+    }, {} as { [date: string]: any[] })
+  ).map(([date, records]) => (
+    <div key={date} className="mb-4 border rounded-lg bg-white/60">
+      <button
+        className="w-full text-left px-4 py-2 font-semibold flex items-center justify-between"
+        onClick={() => setExpandedDates((prev) => ({ ...prev, [date]: !prev[date] }))}
+      >
+        <span>{date}</span>
+        <span>{expandedDates[date] ? '▲' : '▼'}</span>
+      </button>
+      {expandedDates[date] && (
+        <div className="px-4 pb-2">
+          {records.map((s: any) => (
+            <div
+              key={s.id}
+              className="flex items-center justify-between border-b py-2"
+            >
+              <div>
+                <div className="font-medium">
+                  Pump: {s.pump_id} | Shift: {s.shift_type}
+                </div>
+                <div className="text-xs text-gray-600">
+                  Volume: {(s.closing_reading - s.opening_reading).toLocaleString()}L
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Approval/Fix Status */}
+                {s.is_approved ? (
+                  <span className="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs">Authorised</span>
+                ) : s.fix_reason && !s.is_fixed ? (
+                  <>
+                    <span className="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs">Fix Requested</span>
+                    <button
+                      className="ml-2 bg-orange-600 text-white px-3 py-0.5 rounded-full text-xs font-semibold"
+                      onClick={() => {
+                        // Scroll to or set the form for this pump/shift for correction
+                        setSelectedPumpId(String(s.pump_id));
+                        setShift(s.shift_type);
+                        // Optionally, prefill readings if you want
+                        setReading({ opening: s.opening_reading, closing: s.closing_reading });
+                        // Optionally, scroll to the form
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      Fix
+                    </button>
+                  </>
+                ) : (
+                  <span className="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs">Pending</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  ))}
+  {submissions.length === 0 && (
+    <div className="text-gray-500 text-sm">No submissions yet.</div>
+  )}
+</div>
 
 
 
