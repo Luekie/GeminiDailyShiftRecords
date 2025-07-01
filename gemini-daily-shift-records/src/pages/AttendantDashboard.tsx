@@ -816,10 +816,10 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
     )}
   </h2>
   {Object.entries(
-    submissions.reduce((acc, s) => {
+    submissions.reduce<{ [date: string]: any[] }>((acc, s) => {
       (acc[s.shift_date] = acc[s.shift_date] || []).push(s);
       return acc;
-    }, {} as { [date: string]: any[] })
+    }, {})
   ).map(([date, records]) => (
     <div key={date} className="mb-4 border rounded-lg bg-white/60">
       <button
@@ -831,7 +831,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
       </button>
       {expandedDates[date] && (
         <div className="px-4 pb-2">
-          {records.map((s: any) => (
+          {(records as any[]).map((s: any) => (
             <div
               key={s.id}
               className="flex items-center justify-between border-b py-2"
