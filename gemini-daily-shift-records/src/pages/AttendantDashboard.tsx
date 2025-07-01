@@ -48,6 +48,11 @@ const AttendantDashboard = () => {
   const [submissions, setSubmissions] = useState<any[]>([]);
 const [expandedDates, setExpandedDates] = useState<{ [date: string]: boolean }>({});
 const [fixNotifications, setFixNotifications] = useState<any[]>([]);
+const [showSubmissions, setShowSubmissions] = useState(false);
+const [showNotifications, setShowNotifications] = useState(false);
+
+// Track viewed notifications
+const [viewedNotifications, setViewedNotifications] = useState(false);
 
   // Own Use Entries State
 type OwnUseEntry =
@@ -134,7 +139,12 @@ function removeOwnUseEntry(idx: number) {
     if (!error && data) {
       setSubmissions(data);
       // Find submissions with fix requested
-      setFixNotifications(data.filter((s: any) => s.fix_reason && !s.is_fixed));
+        const fixNotifications = submissions.filter(
+      (s) => s.fix_reason && !s.is_approved
+      );
+
+      setFixNotifications(fixNotifications);
+
     }
   }
   fetchSubmissions();
@@ -177,11 +187,19 @@ useEffect(() => {
   fetchSubmittedPumps();
 }, [user, submitted, shift]);
 
+  const isFixing = !!submissions.find(
+    (s) =>
+      s.pump_id === selectedPump?.id &&
+      s.shift_type === shift &&
+      s.fix_reason &&
+      !s.is_approved
+  );
+
   const submitShift = useMutation({
     mutationFn: async () => {
       if (!selectedPump) throw new Error('No pump selected');
       if (!user) throw new Error('User not logged in');
-      if (submittedPumps.includes(String(selectedPump.id))) {
+      if (submittedPumps.includes(String(selectedPump.id)) && !isFixing) {
         throw new Error('You have already submitted for this pump today.');
       }
       if (isNaN(reading.opening) || isNaN(reading.closing)) {
@@ -199,7 +217,6 @@ useEffect(() => {
         opening_reading: reading.opening,
         closing_reading: reading.closing,
         fuel_price: selectedPump.price, 
-       
         is_approved: false,
         supervisor_id: null,
         fix_reason: null,
@@ -212,48 +229,104 @@ useEffect(() => {
         mo_payment_received: moPayments.reduce((sum, m) => sum + Number(m.amount || 0), 0),
       };
 
-      console.log("Submitting payload:", payload);  
-      const { data: shiftInsertResult, error } = await supabase.from('shifts').insert([payload]).select('id');
-      if (error) {
-        console.error("Supabase insert error:", error);
-        throw error;
-      }
-
-      // Submit each own use entry individually to the 'own_use' table, linked to the shift
-      if (shiftInsertResult && shiftInsertResult.length > 0) {
-        const shiftId = shiftInsertResult[0].id;
-        for (const entry of ownUseEntries) {
-          const ownUsePayload = {
-            shift_id: shiftId,
-            type: entry.type,
-            ...(entry.type === 'vehicle' ? {
-              registration: entry.registration,
-              volume: entry.volume,
-              amount: entry.amount
-            } : {}),
-            ...(entry.type === 'genset' ? {
-              hours: entry.hours,
-              volume: entry.volume,
-              amount: entry.amount
-            } : {}),
-            ...(entry.type === 'lawnmower' ? {
-              gardener: entry.gardener,
-              volume: entry.volume,
-              amount: entry.amount
-            } : {})
-          };
-          const { error: ownUseError } = await supabase.from('own_use').insert([ownUsePayload]);
-          if (ownUseError) {
-            console.error('Own use insert error:', ownUseError);
-            // Optionally, you can throw or continue
+      if (isFixing) {
+        // Update the existing fix-requested shift instead of inserting a new one
+        const fixShift = submissions.find(
+          (s) =>
+            s.pump_id === selectedPump?.id &&
+            s.shift_type === shift &&
+            s.fix_reason &&
+            !s.is_approved
+        );
+        if (fixShift) {
+          const { error } = await supabase
+            .from('shifts')
+            .update({ ...payload, fix_reason: null, is_approved: false })
+            .eq('id', fixShift.id);
+          if (error) {
+            throw error;
+          }
+          // Optionally update own_use entries for this shift (delete old and insert new)
+          await supabase.from('own_use').delete().eq('shift_id', fixShift.id);
+          for (const entry of ownUseEntries) {
+            const ownUsePayload = {
+              shift_id: fixShift.id,
+              type: entry.type,
+              ...(entry.type === 'vehicle' ? {
+                registration: entry.registration,
+                volume: entry.volume,
+                amount: entry.amount
+              } : {}),
+              ...(entry.type === 'genset' ? {
+                hours: entry.hours,
+                volume: entry.volume,
+                amount: entry.amount
+              } : {}),
+              ...(entry.type === 'lawnmower' ? {
+                gardener: entry.gardener,
+                volume: entry.volume,
+                amount: entry.amount
+              } : {})
+            };
+            await supabase.from('own_use').insert([ownUsePayload]);
+          }
+          return true;
+        } else {
+          throw new Error('No fix-requested shift found to update.');
+        }
+      } else {
+        // Normal submission: insert new shift
+        const { data: shiftInsertResult, error } = await supabase.from('shifts').insert([payload]).select('id');
+        if (error) {
+          throw error;
+        }
+        if (shiftInsertResult && shiftInsertResult.length > 0) {
+          const shiftId = shiftInsertResult[0].id;
+          for (const entry of ownUseEntries) {
+            const ownUsePayload = {
+              shift_id: shiftId,
+              type: entry.type,
+              ...(entry.type === 'vehicle' ? {
+                registration: entry.registration,
+                volume: entry.volume,
+                amount: entry.amount
+              } : {}),
+              ...(entry.type === 'genset' ? {
+                hours: entry.hours,
+                volume: entry.volume,
+                amount: entry.amount
+              } : {}),
+              ...(entry.type === 'lawnmower' ? {
+                gardener: entry.gardener,
+                volume: entry.volume,
+                amount: entry.amount
+              } : {})
+            };
+            await supabase.from('own_use').insert([ownUsePayload]);
           }
         }
+        return true;
       }
-
-      return true;
     },
-    onSuccess: () => {
-      alert('Shift submitted successfully!'); // ✅ Feedback to user
+    onSuccess: async () => {
+      alert('Shift submitted successfully!');
+      // If this was a fix, update the original fix-requested shift to pending
+      if (isFixing) {
+        // Find the original fix-requested shift
+        const fixShift = submissions.find(
+          (s) =>
+            s.pump_id === selectedPump?.id &&
+            s.shift_type === shift &&
+            s.fix_reason &&
+            !s.is_approved
+        );
+        if (fixShift) {
+          await supabase
+            .from('shifts')
+            .update({ is_approved: false, fix_reason: null })
+            .eq('id', fixShift.id);
+        }
+      }
       setSubmitted(true);
       setSelectedPumpId("");
       setReading({ opening: 0, closing: 0 });
@@ -265,7 +338,7 @@ useEffect(() => {
       setNationalBankCards([{ name: '', amount: '' }]);
       setMoPayments([{ name: '', amount: '' }]);
       setOwnUseEntries([{ type: 'vehicle', registration: '', volume: '', amount: '' }]);
-      localStorage.removeItem('shiftDraft'); // Clear draft on successful submit
+      localStorage.removeItem('shiftDraft');
     },
     onError: (error: any) => {
       console.error('Submit error:', error);
@@ -357,32 +430,77 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
         Welcome, {user?.username || 'Guest'}!
       </h2>
 
-      <div className="relative">
+      
+    <div className="relative">
   <button
     className="relative"
     onClick={() => {
-      // Scroll to or open the submissions section
-      document.getElementById('submissions-section')?.scrollIntoView({ behavior: 'smooth' });
-      // Optionally, expand the first fix request
-      if (fixNotifications.length > 0) {
-        setExpandedDates((prev) => ({
-          ...prev,
-          [fixNotifications[0].shift_date]: true,
-        }));
-      }
+      setShowNotifications(true);
+      setViewedNotifications(true); // Mark notifications as viewed
     }}
     title="Fix Requests"
   >
     <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
       <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-5-6.32V4a1 1 0 1 0-2 0v.68C7.63 5.36 6 7.92 6 11v5l-1.29 1.29A1 1 0 0 0 6 19h12a1 1 0 0 0 .71-1.71L18 16z" fill="#f59e42"/>
     </svg>
-    {fixNotifications.length > 0 && (
+    {fixNotifications.length > 0 && !viewedNotifications && (
       <span className="absolute top-0 right-0 bg-red-600 text-white rounded-full text-xs px-1.5 py-0.5">
         {fixNotifications.length}
       </span>
     )}
   </button>
+  {/* Notification Modal Popup */}
+  {showNotifications && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowNotifications(false)}>
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto p-4 relative"
+        style={{ minWidth: 320 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold"
+          onClick={() => setShowNotifications(false)}
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <div className="font-bold text-lg mb-2 text-gray-800">Notifications</div>
+        {fixNotifications.length === 0 ? (
+          <div className="p-4 text-gray-500 text-center">No fix requests.</div>
+        ) : (
+          <div className="space-y-2">
+            {fixNotifications.map((n) => (
+              <button
+                key={n.id}
+                className="w-full text-left px-4 py-2 rounded bg-orange-50 hover:bg-orange-100 border border-orange-200 flex flex-col"
+                onClick={() => {
+                  setShowNotifications(false);
+                  setViewedNotifications(true); // Mark notifications as viewed
+                  setShowSubmissions(false); // Hide submissions section
+                  setSelectedPumpId(String(n.pump_id));
+                  setShift(n.shift_type);
+                  setReading({ opening: n.opening_reading, closing: n.closing_reading });
+                  setExpandedDates((prev) => ({ ...prev, [n.shift_date]: true }));
+                  setTimeout(() => {
+                    // Only scroll to pump section, not submissions
+                  }, 100);
+                }}
+              >
+                <span className="font-medium text-orange-800">Fix requested for Pump {n.pump_id} ({n.shift_type} shift)</span>
+                <span className="text-xs text-gray-600">{n.shift_date}</span>
+                <span className="text-xs text-orange-700">Reason: {n.fix_reason}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
 </div>
+
+
+      
+
 
       <Button
         onClick={handleLogout}
@@ -392,54 +510,59 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
       </Button>
     </div>
 
-      <div className="flex items-center mb-6 gap-4"> {/* Increased bottom margin and gap */}
-     
-
-  <div className="flex items-center space-x-4"> {/* Group for shift selector with spacing */}
-    <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
-      Select Shift:
-    </label>
-    <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
-      <SelectTrigger className="w-32 bg-white/50">
-        {shift.toUpperCase()} Shift
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="day">Day</SelectItem>
-        <SelectItem value="night">Night</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
-
-  <div className="flex items-center space-x-4 ml-4"> {/* Group for pump selector with left margin */}
-    <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
-      Select Pump:
-    </label>
     
-    {loadingPumps ? (
-      <p className="whitespace-nowrap">Loading pumps...</p>
-    ) : pumpError ? (
-      <p className="text-red-600 whitespace-nowrap">{pumpError}</p>
-    ) : (
-      <Select value={selectedPumpId}
-       onValueChange={(value) => {
-        setSelectedPumpId(value);
-       }}>
-        <SelectTrigger className="w-64 bg-white/50" style={{ borderRadius: 8, border: '1px solid #e5e5ea', color: "black" }}>
-          {selectedPumpId
-            ? pumps.find(p => String(p.id) === selectedPumpId)?.name
-            : 'Choose a pump'}
-        </SelectTrigger>
-        <SelectContent>
-          {pumps.map(p => (
-            <SelectItem key={String(p.id)} value={String(p.id)} disabled={submittedPumps.includes(String(p.id))}>
-              {p.name} {submittedPumps.includes(String(p.id)) && '(Already submitted)'}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    )}
-  </div>
-</div>
+
+      <div className="flex items-center mb-6 gap-4"> {/* Increased bottom margin and gap */}
+        <div className="flex items-center space-x-4"> {/* Group for shift selector with spacing */}
+          <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
+            Select Shift:
+          </label>
+          <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
+            <SelectTrigger className="w-32 bg-white/50">
+              {shift.toUpperCase()} Shift
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="day">Day</SelectItem>
+              <SelectItem value="night">Night</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center space-x-4 ml-4"> {/* Group for pump selector with left margin */}
+          <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
+            Select Pump:
+          </label>
+          {loadingPumps ? (
+            <p className="whitespace-nowrap">Loading pumps...</p>
+          ) : pumpError ? (
+            <p className="text-red-600 whitespace-nowrap">{pumpError}</p>
+          ) : (
+            <Select value={selectedPumpId}
+              onValueChange={(value) => {
+                setSelectedPumpId(value);
+              }}>
+              <SelectTrigger className="w-64 bg-white/50" style={{ borderRadius: 8, border: '1px solid #e5e5ea', color: 'black' }}>
+                {selectedPumpId
+                  ? pumps.find(p => String(p.id) === selectedPumpId)?.name
+                  : 'Choose a pump'}
+              </SelectTrigger>
+              <SelectContent>
+                {pumps.map(p => (
+                  <SelectItem key={String(p.id)} value={String(p.id)} disabled={submittedPumps.includes(String(p.id))}>
+                    {p.name} {submittedPumps.includes(String(p.id)) && '(Already submitted)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          className="bg-white/50 ml-4"
+          onClick={() => setShowSubmissions(!showSubmissions)}
+        >
+          {showSubmissions ? 'Hide Submissions' : 'My Submissions'}
+        </Button>
+      </div>
      
 
     {selectedPump && (
@@ -805,11 +928,11 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
         </div>
       )}
 
-      {/* --- Submissions Section --- */}
+      {showSubmissions && (
 <div id="submissions-section" className="mt-8">
   <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
     <span>My Submissions</span>
-    {fixNotifications.length > 0 && (
+    {fixNotifications.length > 0 && !viewedNotifications && (
       <span className="bg-red-600 text-white rounded-full text-xs px-2 py-0.5">
         {fixNotifications.length} Fix Request{fixNotifications.length > 1 ? 's' : ''}
       </span>
@@ -848,23 +971,33 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                 {/* Approval/Fix Status */}
                 {s.is_approved ? (
                   <span className="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs">Authorised</span>
-                ) : s.fix_reason && !s.is_fixed ? (
+                ) : s.fix_reason && !s.is_approved ? (
                   <>
                     <span className="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs">Fix Requested</span>
-                    <button
+                    <Button
                       className="ml-2 bg-orange-600 text-white px-3 py-0.5 rounded-full text-xs font-semibold"
-                      onClick={() => {
-                        // Scroll to or set the form for this pump/shift for correction
+                      onClick={async () => {
+                        setShowSubmissions(false); // Hide submissions section
                         setSelectedPumpId(String(s.pump_id));
                         setShift(s.shift_type);
-                        // Optionally, prefill readings if you want
                         setReading({ opening: s.opening_reading, closing: s.closing_reading });
-                        // Optionally, scroll to the form
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        // Mark as fixed in DB by clearing fix_reason and is_fixed, set to pending
+                        await supabase.from('shifts').update({ is_approved: false, fix_reason: null }).eq('id', s.id);
+                        // Refetch submissions
+                        if (!user) return;
+                        const { data, error } = await supabase
+                          .from('shifts')
+                          .select('*')
+                          .eq('attendant_id', user.id)
+                          .order('shift_date', { ascending: false });
+                        if (!error && data) {
+                          setSubmissions(data);
+                          setFixNotifications(data.filter((row: any) => row.fix_reason && !row.is_approved));
+                        }
                       }}
                     >
                       Fix
-                    </button>
+                    </Button>
                   </>
                 ) : (
                   <span className="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs">Pending</span>
@@ -880,6 +1013,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
     <div className="text-gray-500 text-sm">No submissions yet.</div>
   )}
 </div>
+)}
 
 
 
