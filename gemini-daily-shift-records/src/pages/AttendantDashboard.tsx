@@ -551,7 +551,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
  
       <Button
         onClick={handleLogout}
-        className=" justify-end bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
+        className=" justify-right bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
       >
         Log Out
       </Button>
@@ -580,7 +580,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
           className="bg-white/50 ml-4"
           onClick={() => setShowReadings(true)}
         >
-          Enter Readings
+          Enter Pump Readings
 
         </Button>
 
@@ -626,7 +626,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
               className="bg-white/50 mb-4"
               onClick={() => setShowPumpModal(true)}
             >
-              + Enter Pump Reading
+              add pump
             </Button>
 
             {/* Modal for adding pump reading */}
