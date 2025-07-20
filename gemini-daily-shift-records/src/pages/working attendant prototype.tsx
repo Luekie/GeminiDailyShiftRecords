@@ -551,7 +551,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
  
       <Button
         onClick={handleLogout}
-        className=" justify-end bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
+        className=" justify-right bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
       >
         Log Out
       </Button>
