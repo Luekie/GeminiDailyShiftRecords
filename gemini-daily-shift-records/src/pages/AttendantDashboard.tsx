@@ -637,20 +637,26 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                   <h3 className="font-semibold mb-4">Add Pump Reading</h3>
                   <div className="space-y-3">
                     <label className="block font-medium">Pump</label>
-                    <select className="w-full border rounded p-2" value={modalPumpId} onChange={e => setModalPumpId(e.target.value)}>
-                      <option value="">Select pump</option>
-                      {pumps.map(p => (
-                        <option key={p.id} value={p.id} disabled={pumpReadings.some(r => r.pumpId === String(p.id))}>
-                          {p.name} {pumpReadings.some(r => r.pumpId === String(p.id)) && '(Added)'}
-                        </option>
-                      ))}
-                    </select>
+                    {loadingPumps ? (
+                      <div className="text-gray-600">Loading pumps...</div>
+                    ) : pumpError ? (
+                      <div className="text-red-600">{pumpError}</div>
+                    ) : (
+                      <select className="w-full border rounded p-2" value={modalPumpId} onChange={e => setModalPumpId(e.target.value)}>
+                        <option value="">Select pump</option>
+                        {pumps.map(p => (
+                          <option key={p.id} value={p.id} disabled={pumpReadings.some(r => r.pumpId === String(p.id))}>
+                            {p.name} {pumpReadings.some(r => r.pumpId === String(p.id)) && '(Added)'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <label className="block font-medium">Opening Meter</label>
                     <Input type="number" value={modalOpening} onChange={e => setModalOpening(e.target.value)} placeholder="Opening" />
                     <label className="block font-medium">Closing Meter</label>
                     <Input type="number" value={modalClosing} onChange={e => setModalClosing(e.target.value)} placeholder="Closing" />
                     {modalError && <div className="text-red-600 text-sm">{modalError}</div>}
-                    <Button className="mt-2 w-full" onClick={handleAddPumpReading}>Add</Button>
+                    <Button className="mt-2 w-full" onClick={handleAddPumpReading} disabled={loadingPumps || !!pumpError}>Add</Button>
                   </div>
                 </div>
               </div>
