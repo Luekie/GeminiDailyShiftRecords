@@ -102,12 +102,12 @@ const [viewedNotifications, setViewedNotifications] = useState(false);
 
   // Own Use Entries State
 type OwnUseEntry =
-  | { type: 'vehicle'; registration: string; volume: string; amount: string }
-  | { type: 'genset'; hours: string; volume: string; amount: string }
-  | { type: 'lawnmower'; gardener: string; volume: string; amount: string };
+  | { type: 'vehicle'; registration: string; volume: string; fuelType: 'petrol' | 'diesel' }
+  | { type: 'genset'; hours: string; volume: string; fuelType: 'petrol' | 'diesel' }
+  | { type: 'lawnmower'; gardener: string; volume: string; fuelType: 'petrol' | 'diesel' };
 
 const [ownUseEntries, setOwnUseEntries] = useState<OwnUseEntry[]>([
-  { type: 'vehicle', registration: '', volume: '', amount: '' },
+  { type: 'vehicle', registration: '', volume: '', fuelType: 'petrol' },
 ]);
 
 function updateOwnUseEntry(idx: number, field: string, value: any) {
@@ -117,9 +117,9 @@ function updateOwnUseEntry(idx: number, field: string, value: any) {
 }
 
 function addOwnUseEntry(type: 'vehicle' | 'genset' | 'lawnmower') {
-  if (type === 'vehicle') setOwnUseEntries([...ownUseEntries, { type: 'vehicle', registration: '', volume: '', amount: '' }]);
-  if (type === 'genset') setOwnUseEntries([...ownUseEntries, { type: 'genset', hours: '', volume: '', amount: '' }]);
-  if (type === 'lawnmower') setOwnUseEntries([...ownUseEntries, { type: 'lawnmower', gardener: '', volume: '', amount: '' }]);
+  if (type === 'vehicle') setOwnUseEntries([...ownUseEntries, { type: 'vehicle', registration: '', volume: '', fuelType: 'petrol' }]);
+  if (type === 'genset') setOwnUseEntries([...ownUseEntries, { type: 'genset', hours: '', volume: '', fuelType: 'petrol' }]);
+  if (type === 'lawnmower') setOwnUseEntries([...ownUseEntries, { type: 'lawnmower', gardener: '', volume: '', fuelType: 'petrol' }]);
 }
 
 function removeOwnUseEntry(idx: number) {
@@ -301,17 +301,20 @@ useEffect(() => {
               ...(entry.type === 'vehicle' ? {
                 registration: entry.registration,
                 volume: entry.volume,
-                amount: entry.amount
+                fuel_type: entry.fuelType,
+                amount: getOwnUseAmount(entry)
               } : {}),
               ...(entry.type === 'genset' ? {
                 hours: entry.hours,
                 volume: entry.volume,
-                amount: entry.amount
+                fuel_type: entry.fuelType,
+                amount: getOwnUseAmount(entry)
               } : {}),
               ...(entry.type === 'lawnmower' ? {
                 gardener: entry.gardener,
                 volume: entry.volume,
-                amount: entry.amount
+                fuel_type: entry.fuelType,
+                amount: getOwnUseAmount(entry)
               } : {})
             };
             await supabase.from('own_use').insert([ownUsePayload]);
@@ -335,17 +338,20 @@ useEffect(() => {
               ...(entry.type === 'vehicle' ? {
                 registration: entry.registration,
                 volume: entry.volume,
-                amount: entry.amount
+                fuel_type: entry.fuelType,
+                amount: getOwnUseAmount(entry)
               } : {}),
               ...(entry.type === 'genset' ? {
                 hours: entry.hours,
                 volume: entry.volume,
-                amount: entry.amount
+                fuel_type: entry.fuelType,
+                amount: getOwnUseAmount(entry)
               } : {}),
               ...(entry.type === 'lawnmower' ? {
                 gardener: entry.gardener,
                 volume: entry.volume,
-                amount: entry.amount
+                fuel_type: entry.fuelType,
+                amount: getOwnUseAmount(entry)
               } : {})
             };
             await supabase.from('own_use').insert([ownUsePayload]);
@@ -383,7 +389,7 @@ useEffect(() => {
       setFdhCards([{ name: '', amount: '' }]);
       setNationalBankCards([{ name: '', amount: '' }]);
       setMoPayments([{ name: '', amount: '' }]);
-      setOwnUseEntries([{ type: 'vehicle', registration: '', volume: '', amount: '' }]);
+      setOwnUseEntries([{ type: 'vehicle', registration: '', volume: '', fuelType: 'petrol' }]);
       localStorage.removeItem('shiftDraft');
     },
     onError: (error: any) => {
@@ -466,6 +472,37 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
   setList([...list, { name: '', amount: '' }]);
 }
 
+
+  function getFuelPrice(fuelType: 'petrol' | 'diesel') {
+    // Try to find a pump with the matching type (case-insensitive, partial match)
+    let pump = pumps.find(p =>
+      p.type && typeof p.type === 'string' &&
+      p.type.toLowerCase().includes(fuelType)
+    );
+    // If not found, try fallback: look for a pump whose name includes the fuelType
+    if (!pump) {
+      pump = pumps.find(p =>
+        p.name && typeof p.name === 'string' &&
+        p.name.toLowerCase().includes(fuelType)
+      );
+    }
+    // If still not found, fallback to first available pump with a price
+    if (!pump && pumps.length > 0) {
+      pump = pumps.find(p => typeof p.price !== 'undefined');
+    }
+    return pump && typeof pump.price !== 'undefined' ? Number(pump.price) : 0;
+  }
+
+  function getOwnUseAmount(
+    entry:
+      | { type: 'vehicle'; registration: string; volume: string; fuelType: 'petrol' | 'diesel' }
+      | { type: 'genset'; hours: string; volume: string; fuelType: 'petrol' | 'diesel' }
+      | { type: 'lawnmower'; gardener: string; volume: string; fuelType: 'petrol' | 'diesel' }
+  ): number {
+    const price = getFuelPrice(entry.fuelType);
+    const volume = parseFloat(entry.volume) || 0;
+    return Math.round(Number(price) * volume);
+  }
 
   return (
 
@@ -884,74 +921,86 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
         {entry.type === 'vehicle' && (
           <>
             <Input
-               className="text-black bg-white/50"
+              className="text-black bg-white/50"
               placeholder="Vehicle Registration"
               value={entry.registration}
               onChange={e => updateOwnUseEntry(idx, 'registration', e.target.value)}
             />
             <Input
-             className="text-black bg-white/50"
+              className="text-black bg-white/50"
               placeholder="Volume (litres)"
               type="number"
               value={entry.volume}
               onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
             />
-            <Input
-             className="text-black bg-white/50"
-              placeholder="Amount (MWK)"
-              type="number"
-              value={entry.amount}
-              onChange={e => updateOwnUseEntry(idx, 'amount', e.target.value)}
-            />
+            <select
+              className="w-full border rounded p-2 bg-white/50 text-black"
+              value={entry.fuelType}
+              onChange={e => updateOwnUseEntry(idx, 'fuelType', e.target.value)}
+            >
+              <option value="petrol">Petrol</option>
+              <option value="diesel">Diesel</option>
+            </select>
+            <div className="mt-2">
+              Amount: <strong>{getOwnUseAmount(entry).toLocaleString()} MWK</strong>
+            </div>
           </>
         )}
         {entry.type === 'genset' && (
           <>
             <Input
-             className="text-black bg-white/50"
+              className="text-black bg-white/50"
               placeholder="Hours Used"
               type="number"
               value={entry.hours}
               onChange={e => updateOwnUseEntry(idx, 'hours', e.target.value)}
             />
             <Input
-             className="text-black bg-white/50"
+              className="text-black bg-white/50"
               placeholder="Volume (litres)"
               type="number"
               value={entry.volume}
               onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
             />
-            <Input
-             className="text-black bg-white/50"
-              placeholder="Amount (MWK)"
-              type="number"
-              value={entry.amount}
-              onChange={e => updateOwnUseEntry(idx, 'amount', e.target.value)}
-            />
+            <select
+              className="w-full border rounded p-2 bg-white/50 text-black"
+              value={entry.fuelType}
+              onChange={e => updateOwnUseEntry(idx, 'fuelType', e.target.value)}
+            >
+              <option value="petrol">Petrol</option>
+              <option value="diesel">Diesel</option>
+            </select>
+            <div className="mt-2">
+              Amount: <strong>{getOwnUseAmount(entry).toLocaleString()} MWK</strong>
+            </div>
           </>
         )}
         {entry.type === 'lawnmower' && (
           <>
             <Input
-             className="text-black bg-white/50"
+              className="text-black bg-white/50"
               placeholder="Gardener Name"
               value={entry.gardener}
               onChange={e => updateOwnUseEntry(idx, 'gardener', e.target.value)}
             />
             <Input
-             className="text-black bg-white/50"
+              className="text-black bg-white/50"
               placeholder="Volume (litres)"
               type="number"
               value={entry.volume}
               onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
             />
-            <Input
-             className="text-black bg-white/50"
-              placeholder="Amount (MWK)"
-              type="number"
-              value={entry.amount}
-              onChange={e => updateOwnUseEntry(idx, 'amount', e.target.value)}
-            />
+            <select
+              className="w-full border rounded p-2 bg-white/50 text-black"
+              value={entry.fuelType}
+              onChange={e => updateOwnUseEntry(idx, 'fuelType', e.target.value)}
+            >
+              <option value="petrol">Petrol</option>
+              <option value="diesel">Diesel</option>
+            </select>
+            <div className="mt-2">
+              Amount: <strong>{getOwnUseAmount(entry).toLocaleString()} MWK</strong>
+            </div>
           </>
         )}
       </div>
@@ -971,7 +1020,21 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
               // Calculate expected amount from readings and pump price
               const expected = selectedPump ? (Number(reading.closing) - Number(reading.opening)) * Number(selectedPump.price) : 0;
               // Calculate total collected
-              const ownUseTotal = ownUseEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+              const ownUseTotal = ownUseEntries.reduce((sum, entry) => sum + getOwnUseAmount(entry), 0);
+
+
+  // --- Own Use helpers (must be above all usages) ---
+  function getFuelPrice(fuelType: 'petrol' | 'diesel') {
+    // Try to find a pump with the matching type
+    const pump = pumps.find(p => (p.type?.toLowerCase?.() || '').includes(fuelType));
+    return pump ? Number(pump.price) : 0;
+  }
+
+  function getOwnUseAmount(entry: any) {
+    const price = getFuelPrice(entry.fuelType);
+    const volume = parseFloat(entry.volume) || 0;
+    return Math.round(price * volume);
+  }
               const collected = Number(cash)
                 + prepayments.reduce((sum, p) => sum + Number(p.amount), 0)
                 + credits.reduce((sum, c) => sum + Number(c.amount), 0)
@@ -1126,8 +1189,5 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
 };
 
 export default AttendantDashboard;
-
-
-
 
 
