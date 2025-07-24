@@ -105,6 +105,7 @@ export default function LoginPage() {
           supervisor name: denis password: pass125<br />
           manager: name: arnold password: pass123<br />
           attendant name:attendant1 password: pass127<br />
+          attendant name:attendant2 password: pass126<br />
           attendant name:attendant5 password: pass128<br />
           attendant name:attendant3 password: pass129<br /> 
           attendant name:attendant4 password: pass1211<br />
