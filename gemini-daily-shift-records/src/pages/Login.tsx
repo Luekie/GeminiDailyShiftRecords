@@ -103,7 +103,11 @@ export default function LoginPage() {
         <div className="pt-4 text-lg text-black font-bold  text-center">
           attendant name: lusekero password: pass124<br />
           supervisor name: denis password: pass125<br />
-          manager: name: arnold password: pass123
+          manager: name: arnold password: pass123<br />
+          attendant name:attendant1 password: pass127<br />
+          attendant name:attendant5 password: pass128<br />
+          attendant name:attendant3 password: pass129<br /> 
+          attendant name:attendant4 password: pass1211<br />
         </div>
       </form>
     </div>

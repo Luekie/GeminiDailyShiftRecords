@@ -1017,24 +1017,14 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
           <div className="p-4 border rounded-lg space-y-2 bg-white/50 shadow">
             <h3 className="font-semibold text-xl">Summary</h3>
             {(() => {
-              // Calculate expected amount from readings and pump price
-              const expected = selectedPump ? (Number(reading.closing) - Number(reading.opening)) * Number(selectedPump.price) : 0;
+              // Calculate total expected and total volume from all pump readings
+              const totalVolume = pumpReadings.reduce((sum, r) => sum + (r.closing - r.opening), 0);
+              const totalExpected = pumpReadings.reduce((sum, r) => {
+                const pump = pumps.find(p => String(p.id) === String(r.pumpId));
+                return sum + ((r.closing - r.opening) * (pump ? Number(pump.price) : 0));
+              }, 0);
               // Calculate total collected
               const ownUseTotal = ownUseEntries.reduce((sum, entry) => sum + getOwnUseAmount(entry), 0);
-
-
-  // --- Own Use helpers (must be above all usages) ---
-  function getFuelPrice(fuelType: 'petrol' | 'diesel') {
-    // Try to find a pump with the matching type
-    const pump = pumps.find(p => (p.type?.toLowerCase?.() || '').includes(fuelType));
-    return pump ? Number(pump.price) : 0;
-  }
-
-  function getOwnUseAmount(entry: any) {
-    const price = getFuelPrice(entry.fuelType);
-    const volume = parseFloat(entry.volume) || 0;
-    return Math.round(price * volume);
-  }
               const collected = Number(cash)
                 + prepayments.reduce((sum, p) => sum + Number(p.amount), 0)
                 + credits.reduce((sum, c) => sum + Number(c.amount), 0)
@@ -1043,35 +1033,34 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                 + nationalBankCards.reduce((sum, c) => sum + Number(c.amount), 0)
                 + moPayments.reduce((sum, m) => sum + Number(m.amount), 0)
                 + ownUseTotal;
-              // Calculate volume
-              const volume = Number(reading.closing) - Number(reading.opening);
+              // Calculate average price per litre
               // Calculate balance
               let balanceLabel = 'Balanced';
               let balanceClass = 'text-gray-800';
-              if (collected < expected) {
-                balanceLabel = `Shortage: ${(expected - collected).toLocaleString()}`;
+              if (collected < totalExpected) {
+                balanceLabel = `Shortage: ${(totalExpected - collected).toLocaleString()} MWK`;
                 balanceClass = 'text-red-600';
-              } else if (collected > expected) {
-                balanceLabel = `Overage: ${(collected - expected).toLocaleString()}`;
+              } else if (collected > totalExpected) {
+                balanceLabel = `Overage: ${(collected - totalExpected).toLocaleString()} MWK`;
                 balanceClass = 'text-green-600';
               }
               return (
                 <>
-                  <p>Volume Sold: <strong>{!isNaN(volume) ? volume.toLocaleString() : 0} litres</strong></p>
-                  <p>Expected Return: <strong>{!isNaN(expected) ? expected.toLocaleString() : 0} MWK</strong></p>
+                  <p>Total Volume Sold: <strong>{!isNaN(totalVolume) ? totalVolume.toLocaleString() : 0} litres</strong></p>
+                  <p>Total Expected Return: <strong>{!isNaN(totalExpected) ? totalExpected.toLocaleString() : 0} MWK</strong></p>
                   <p>Total Collected: <strong>{!isNaN(collected) ? collected.toLocaleString() : 0} MWK</strong></p>
                   <p>
-                    {collected < expected && (
+                    {collected < totalExpected && (
                       <>
                         Balance: <strong className={cn('ml-2', balanceClass)}>{balanceLabel}</strong>
                       </>
                     )}
-                    {collected > expected && (
+                    {collected > totalExpected && (
                       <>
                         Balance: <strong className={cn('ml-2', balanceClass)}>{balanceLabel}</strong>
                       </>
                     )}
-                    {collected === expected && (
+                    {collected === totalExpected && (
                       <>
                         Balance: <strong className={cn('ml-2', balanceClass)}>{balanceLabel}</strong>
                       </>
