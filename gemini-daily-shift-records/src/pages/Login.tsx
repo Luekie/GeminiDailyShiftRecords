@@ -248,7 +248,7 @@ export default function LoginPage() {
           className="text-2xl font-bold mb-6 text-center tracking-tight"
           style={{ color: '#111' }}
         >
-          Login
+          Gemini
         </h2>
         <input
           type="text"
