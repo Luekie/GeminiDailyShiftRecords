@@ -89,7 +89,6 @@ const AttendantDashboard = () => {
   const [loadingPumps, setLoadingPumps] = useState(true);
   const [pumpError, setPumpError] = useState<string | null>(null);
 
-  const selectedPump = pumps.find(p => String(p.id) === selectedPumpId);
   const [submitted, setSubmitted] = useState(false);
   const [submissions, setSubmissions] = useState<any[]>([]);
 const [expandedDates, setExpandedDates] = useState<{ [date: string]: boolean }>({});
@@ -213,7 +212,7 @@ function removeOwnUseEntry(idx: number) {
   };
 
     // Add a state to track submitted pumps for the day
-const [submittedPumps, setSubmittedPumps] = useState<string[]>([]);
+const [, setSubmittedPumps] = useState<string[]>([]);
 
 // Fetch already submitted pumps for this attendant, date, and shift
 useEffect(() => {
@@ -233,98 +232,68 @@ useEffect(() => {
   fetchSubmittedPumps();
 }, [user, submitted, shift]);
 
-  const isFixing = !!submissions.find(
+// Map of pumpId to boolean: isFixing for each pump in pumpReadings
+const isFixingMap: Record<string, boolean> = {};
+for (const r of pumpReadings) {
+  isFixingMap[r.pumpId] = !!submissions.find(
     (s) =>
-      s.pump_id === selectedPump?.id &&
+      String(s.pump_id) === String(r.pumpId) &&
       s.shift_type === shift &&
       s.fix_reason &&
       !s.is_approved
   );
+}
 
   const submitShift = useMutation({
     mutationFn: async () => {
-      if (!selectedPump) throw new Error('No pump selected');
       if (!user) throw new Error('User not logged in');
-      if (submittedPumps.includes(String(selectedPump.id)) && !isFixing) {
-        throw new Error('You have already submitted for this pump today.');
-      }
-      if (isNaN(reading.opening) || isNaN(reading.closing)) {
-        throw new Error('Invalid meter readings');
-      }
-      if (reading.closing < reading.opening) {
-        throw new Error('Closing reading must be greater than opening reading');
-      }
+      if (!pumpReadings.length) throw new Error('No pump readings entered');
 
-      const payload = {
-        pump_id: selectedPump.id,
-        attendant_id: user.id,
-        shift_type: shift,
-        shift_date: new Date().toISOString().slice(0, 10),
-        opening_reading: reading.opening,
-        closing_reading: reading.closing,
-        fuel_price: selectedPump.price, 
-        is_approved: false,
-        supervisor_id: null,
-        fix_reason: null,
-        cash_received: Number(cash) || 0,
-        prepayment_received: prepayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
-        credit_received: credits.reduce((sum, c) => sum + Number(c.amount || 0), 0),
-        fuel_card_received: myFuelCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
-        fdh_card_received: fdhCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
-        national_bank_card_received: nationalBankCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
-        mo_payment_received: moPayments.reduce((sum, m) => sum + Number(m.amount || 0), 0),
-      };
-
-      if (isFixing) {
-        // Update the existing fix-requested shift instead of inserting a new one
-        const fixShift = submissions.find(
-          (s) =>
-            s.pump_id === selectedPump?.id &&
-            s.shift_type === shift &&
-            s.fix_reason &&
-            !s.is_approved
-        );
-        if (fixShift) {
-          const { error } = await supabase
-            .from('shifts')
-            .update({ ...payload, fix_reason: null, is_approved: false })
-            .eq('id', fixShift.id);
-          if (error) {
-            throw error;
-          }
-          // Optionally update own_use entries for this shift (delete old and insert new)
-          await supabase.from('own_use').delete().eq('shift_id', fixShift.id);
-          for (const entry of ownUseEntries) {
-            const ownUsePayload = {
-              shift_id: fixShift.id,
-              type: entry.type,
-              ...(entry.type === 'vehicle' ? {
-                registration: entry.registration,
-                volume: entry.volume,
-                fuel_type: entry.fuelType,
-                amount: getOwnUseAmount(entry)
-              } : {}),
-              ...(entry.type === 'genset' ? {
-                hours: entry.hours,
-                volume: entry.volume,
-                fuel_type: entry.fuelType,
-                amount: getOwnUseAmount(entry)
-              } : {}),
-              ...(entry.type === 'lawnmower' ? {
-                gardener: entry.gardener,
-                volume: entry.volume,
-                fuel_type: entry.fuelType,
-                amount: getOwnUseAmount(entry)
-              } : {})
-            };
-            await supabase.from('own_use').insert([ownUsePayload]);
-          }
-          return true;
-        } else {
-          throw new Error('No fix-requested shift found to update.');
+      // Check for duplicate submissions for any pump (any attendant)
+      const today = new Date().toISOString().slice(0, 10);
+      for (const r of pumpReadings) {
+        // Query shifts table for any record with this pump, date, and shift type
+        const { data: existingShifts, error: checkError } = await supabase
+          .from('shifts')
+          .select('id')
+          .eq('pump_id', r.pumpId)
+          .eq('shift_date', today)
+          .eq('shift_type', shift);
+        if (checkError) throw checkError;
+        if (existingShifts && existingShifts.length > 0) {
+          throw new Error(`A shift for pump ${r.pumpId} has already been submitted for this shift.`);
         }
-      } else {
-        // Normal submission: insert new shift
+        if (isNaN(r.opening) || isNaN(r.closing)) {
+          throw new Error(`Invalid meter readings for pump ${r.pumpId}`);
+        }
+        if (r.closing < r.opening) {
+          throw new Error(`Closing reading must be greater than opening reading for pump ${r.pumpId}`);
+        }
+      }
+
+      // Submit each pump reading as a separate shift
+      for (const r of pumpReadings) {
+        const pump = pumps.find(p => String(p.id) === String(r.pumpId));
+        if (!pump) throw new Error(`Pump not found for id ${r.pumpId}`);
+        const payload = {
+          pump_id: r.pumpId,
+          attendant_id: user.id,
+          shift_type: shift,
+          shift_date: today,
+          opening_reading: r.opening,
+          closing_reading: r.closing,
+          fuel_price: pump.price,
+          is_approved: false,
+          supervisor_id: null,
+          fix_reason: null,
+          cash_received: Number(cash) || 0,
+          prepayment_received: prepayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
+          credit_received: credits.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+          fuel_card_received: myFuelCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+          fdh_card_received: fdhCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+          national_bank_card_received: nationalBankCards.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+          mo_payment_received: moPayments.reduce((sum, m) => sum + Number(m.amount || 0), 0),
+        };
         const { data: shiftInsertResult, error } = await supabase.from('shifts').insert([payload]).select('id');
         if (error) {
           throw error;
@@ -357,29 +326,13 @@ useEffect(() => {
             await supabase.from('own_use').insert([ownUsePayload]);
           }
         }
-        return true;
       }
+      return true;
     },
     onSuccess: async () => {
-      alert('Shift submitted successfully!');
-      // If this was a fix, update the original fix-requested shift to pending
-      if (isFixing) {
-        // Find the original fix-requested shift
-        const fixShift = submissions.find(
-          (s) =>
-            s.pump_id === selectedPump?.id &&
-            s.shift_type === shift &&
-            s.fix_reason &&
-            !s.is_approved
-        );
-        if (fixShift) {
-          await supabase
-            .from('shifts')
-            .update({ is_approved: false, fix_reason: null })
-            .eq('id', fixShift.id);
-        }
-      }
+      alert('Submitted successfully!');
       setSubmitted(true);
+      setPumpReadings([]);
       setSelectedPumpId("");
       setReading({ opening: 0, closing: 0 });
       setCash('');
@@ -817,7 +770,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                 <div key={idx} className="flex gap-2">
                   <Input
                     className="text-black bg-white/50"
-                    placeholder="Customer Name"
+                    placeholder="Receipt number"
                     value={c.name}
                     onChange={e => updateList(myFuelCards, setMyFuelCards, idx, 'name', e.target.value)}
                   />
@@ -861,7 +814,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                 <div key={idx} className="flex gap-2">
                   <Input
                     className="text-black bg-white/50"
-                    placeholder="Customer Name"
+                    placeholder="Invoice number"
                     value={c.name}
                     onChange={e => updateList(nationalBankCards, setNationalBankCards, idx, 'name', e.target.value)}
                   />
@@ -883,7 +836,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                 <div key={idx} className="flex gap-2">
                   <Input
                     className="text-black bg-white/50"
-                    placeholder="Customer Name"
+                    placeholder="Invoice number"
                     value={m.name}
                     onChange={e => updateList(moPayments, setMoPayments, idx, 'name', e.target.value)}
                   />
