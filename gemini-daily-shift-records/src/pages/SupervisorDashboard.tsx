@@ -58,10 +58,26 @@ export default function SupervisorApproval() {
   return today.toISOString().slice(0, 10);
 });
 
+
+// Main submissions for filtered/approved/pending/fix sections
 const { data: submissions = [], isLoading, error } = useQuery({
   queryKey: ['submissions', selectedDate],
   queryFn: () => fetchShiftsForDate(selectedDate),
 });
+
+// All submissions for the date (for Attendant Submissions section, no filter)
+const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
+useEffect(() => {
+  async function fetchAll() {
+    const { data, error } = await supabase
+      .from('shifts')
+      .select('* , attendant:attendant_id(username)')
+      .eq('shift_date', selectedDate);
+    if (!error && data) setAllSubmissions(data);
+    else setAllSubmissions([]);
+  }
+  fetchAll();
+}, [selectedDate]);
 
   const [modal, setModal] = useState<{ open: boolean; submission: Submission | null }>({
     open: false,
@@ -72,13 +88,23 @@ const { data: submissions = [], isLoading, error } = useQuery({
   const [notification, setNotification] = useState<string>("");
   const [shiftFilter, setShiftFilter] = useState<'all' | 'day' | 'night'>('all');
   // Section selection state
-const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending');
+const [section, setSection] = useState<'approved' | 'pending' | 'fix' | 'attendants'>('pending');
 
   // Flat filtered submissions
   const filteredSubmissions = (submissions || []).filter((sub: any) => {
     if (shiftFilter !== 'all' && sub.shift_type !== shiftFilter) return false;
     return true;
   });
+
+  // Group all submissions by attendant for the new section (use allSubmissions)
+  const allByAttendant: Record<string, any[]> = {};
+  (allSubmissions || []).forEach((s: any) => {
+    const attendant = s.attendant?.username || s.attendant_id || 'Unknown Attendant';
+    if (!allByAttendant[attendant]) allByAttendant[attendant] = [];
+    allByAttendant[attendant].push(s);
+  });
+
+  const [attendantView, setAttendantView] = useState<string | null>(null);
 
   // Fetch pump names for mapping
   useEffect(() => {
@@ -217,7 +243,70 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix'>('pending'
         <Button variant={section === 'approved' ? 'default' : 'outline'} onClick={() => { setSection('approved'); setApprovedAttendant(null); setApprovedPump(null); }}>Approved Shifts (History)</Button>
         <Button variant={section === 'pending' ? 'default' : 'outline'} onClick={() => setSection('pending')}>Pending Approval</Button>
         <Button variant={section === 'fix' ? 'default' : 'outline'} onClick={() => setSection('fix')}>Requested for Fix</Button>
+        <Button variant={section === 'attendants' ? 'default' : 'outline'} onClick={() => { setSection('attendants'); setAttendantView(null); }}>Attendant Submissions</Button>
       </div>
+      {section === 'attendants' && (
+        <div>
+          {Object.keys(allByAttendant).length === 0 ? (
+            <div className="ml-6 mt-2 text-gray-500">None</div>
+          ) : !attendantView ? (
+            <ol className="list-decimal ml-6 mt-2">
+              {Object.keys(allByAttendant).map((attendant) => (
+                <li key={attendant} className="mb-2">
+                  <Button variant="outline" onClick={() => setAttendantView(attendant)}>{attendant}</Button>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="ml-6 mt-2">
+              <Button className="mb-2" onClick={() => setAttendantView(null)}>Back to Attendants</Button>
+              <div className="font-semibold mb-2">Submissions for {attendantView}:</div>
+              {allByAttendant[attendantView].map((submission: any, idx: number) => (
+                <Card key={submission.id} className="bg-blue-50 shadow-md mb-2">
+                  <CardContent className="space-y-2 p-4">
+                    <p className="font-bold">#{idx + 1} Date: {submission.shift_date} | Shift: {submission.shift_type}</p>
+                    <p>Pump: <span className="font-bold">{pumpMap[submission.pump_id] || submission.pump_id || submission.pump || '?'}</span></p>
+                    <p>Cash: <span className="font-bold">{submission.cash_received.toLocaleString()} MWK</span></p>
+                    <p>Prepaid: <span className="font-bold">{submission.prepayment_received.toLocaleString()} MWK</span></p>
+                    <p>Credit: <span className="font-bold">{submission.credit_received.toLocaleString()} MWK</span></p>
+                    <p>Fuel Card: <span className="font-bold">{(submission.fuel_card_received || 0).toLocaleString()} MWK</span></p>
+                    <p>FDH Card: <span className="font-bold">{(submission.fdh_card_received || 0).toLocaleString()} MWK</span></p>
+                    <p>National Bank Card: <span className="font-bold">{(submission.national_bank_card_received || 0).toLocaleString()} MWK</span></p>
+                    <p>MO Payment: <span className="font-bold">{(submission.mo_payment_received || 0).toLocaleString()} MWK</span></p>
+                    <p>Own Use Total: <span className="font-bold">{(submission.own_use_total || 0).toLocaleString()} MWK</span></p>
+                    <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
+                    <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
+                    <p>
+                      {getBalance(submission).label !== 'Balanced' ? (
+                        <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                          {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
+                        </span>
+                      ) : (
+                        <span className="text-gray-700 font-bold">Balanced</span>
+                      )}
+                    </p>
+                    {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
+                      <div className="mt-2">
+                        <h4 className="font-semibold">Own Use Details:</h4>
+                        <ul className="list-disc ml-6">
+                          {submission.own_use.map((ou: any, idx: number) => (
+                            <li key={idx}>
+                              {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
+                              {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
+                              {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
+                              Volume: {ou.volume}L, Amount: {ou.amount} MWK
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {notification && <div className="bg-green-100 text-green-800 p-2 rounded mb-2 text-center">{notification}</div>}
       {/* Section content */}
       {section === 'approved' && (

@@ -717,7 +717,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">Prepayments</h3>
               {prepayments.map((p, idx) => (
-                <div key={idx} className="flex gap-2">
+                <div key={idx} className="flex gap-2 items-center">
                   <Input
                     className="text-black bg-white/50"
                     placeholder="Customer Name"
@@ -733,6 +733,9 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                       updateList(prepayments, setPrepayments, idx, 'amount', val)
                     )}
                   />
+                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
+                    {p.amount && !isNaN(Number(p.amount)) ? Number(p.amount).toLocaleString() : ''}
+                  </span>
                 </div>
               ))}
               <Button onClick={() => addEntry(prepayments, setPrepayments)}>+ Add Prepayment</Button>
@@ -743,7 +746,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
             <CardContent className="space-y-2 p-4">
               <h3 className="font-semibold">Credit Sales</h3>
               {credits.map((c, idx) => (
-                <div key={idx} className="flex gap-2">
+                <div key={idx} className="flex gap-2 items-center">
                   <Input
                     className="text-black bg-white/50"
                     placeholder="Customer Name"
@@ -759,6 +762,9 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                       updateList(credits, setCredits, idx, 'amount', val)
                     )}
                   />
+                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
+                    {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
+                  </span>
                 </div>
               ))}
               <Button onClick={() => addEntry(credits, setCredits)}>+ Add Credit</Button>
@@ -770,7 +776,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
               <h3 className="font-semibold">Card Payments</h3>
               <h4 className="font-semibold text-sm mt-2">My Fuel Card Payments</h4>
               {myFuelCards.map((c, idx) => (
-                <div key={idx} className="flex gap-2">
+                <div key={idx} className="flex gap-2 items-center">
                   <Input
                     className="text-black bg-white/50"
                     placeholder="Receipt number"
@@ -786,13 +792,16 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                       updateList(myFuelCards, setMyFuelCards, idx, 'amount', val)
                     )}
                   />
+                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
+                    {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
+                  </span>
                 </div>
               ))}
               <Button onClick={() => addEntry(myFuelCards, setMyFuelCards)}>+ Add My Fuel Card Payment</Button>
 
               <h4 className="font-semibold text-sm mt-4">FDH Bank Card Payments</h4>
               {fdhCards.map((c, idx) => (
-                <div key={idx} className="flex gap-2">
+                <div key={idx} className="flex gap-2 items-center">
                   <Input
                     className="text-black bg-white/50"
                     placeholder="Transaction number"
@@ -808,13 +817,16 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                       updateList(fdhCards, setFdhCards, idx, 'amount', val)
                     )}
                   />
+                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
+                    {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
+                  </span>
                 </div>
               ))}
               <Button onClick={() => addEntry(fdhCards, setFdhCards)}>+ Add FDH Card Payment</Button>
 
               <h4 className="font-semibold text-sm mt-4">National Bank Card Payments</h4>
               {nationalBankCards.map((c, idx) => (
-                <div key={idx} className="flex gap-2">
+                <div key={idx} className="flex gap-2 items-center">
                   <Input
                     className="text-black bg-white/50"
                     placeholder="Invoice number"
@@ -830,13 +842,16 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                       updateList(nationalBankCards, setNationalBankCards, idx, 'amount', val)
                     )}
                   />
+                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
+                    {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
+                  </span>
                 </div>
               ))}
               <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)}>+ Add National Bank Card Payment</Button>
 
              <h4 className="font-semibold text-sm mt-4">MO - Payments </h4>
               {moPayments.map((m, idx) => (
-                <div key={idx} className="flex gap-2">
+                <div key={idx} className="flex gap-2 items-center">
                   <Input
                     className="text-black bg-white/50"
                     placeholder="Invoice number"
@@ -852,6 +867,9 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                       updateList(moPayments,setMoPayments, idx, 'amount', val)
                     )}
                   />
+                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
+                    {m.amount && !isNaN(Number(m.amount)) ? Number(m.amount).toLocaleString() : ''}
+                  </span>
                 </div>
               ))}
               <Button onClick={() => addEntry(moPayments, setMoPayments)}>+ Add Mo Payment</Button>
