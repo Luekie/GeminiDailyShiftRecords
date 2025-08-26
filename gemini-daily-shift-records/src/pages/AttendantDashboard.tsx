@@ -261,7 +261,10 @@ for (const r of pumpReadings) {
           .eq('shift_type', shift);
         if (checkError) throw checkError;
         if (existingShifts && existingShifts.length > 0) {
-          throw new Error(`A shift for pump ${r.pumpId} has already been submitted for this shift.`);
+          // Find pump name for error message
+          const pump = pumps.find(p => String(p.id) === String(r.pumpId));
+          const pumpName = pump?.name || r.pumpId;
+          throw new Error(`A shift for pump ${pumpName} has already been submitted for this shift.`);
         }
         if (isNaN(r.opening) || isNaN(r.closing)) {
           throw new Error(`Invalid meter readings for pump ${r.pumpId}`);
@@ -792,7 +795,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                 <div key={idx} className="flex gap-2">
                   <Input
                     className="text-black bg-white/50"
-                    placeholder="Customer Name"
+                    placeholder="Transaction number"
                     value={c.name}
                     onChange={e => updateList(fdhCards, setFdhCards, idx, 'name', e.target.value)}
                   />
