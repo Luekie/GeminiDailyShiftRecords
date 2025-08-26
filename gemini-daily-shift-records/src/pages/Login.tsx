@@ -20,15 +20,25 @@ export default function LoginPage() {
   const [cpError, setCpError] = useState("");
   const [cpSuccess, setCpSuccess] = useState("");
   const [, setLocation] = useLocation();
+  // Track if user must change password after login
+  const [forceChangePassword, setForceChangePassword] = useState(false);
+  const [forceUser, setForceUser] = useState<any>(null);
   const login = useLogin();
   const user = useAtomValue(userAtom) as AuthUser | null;
 
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      if (user.role === 'attendant') setLocation('/attendant');
-      else if (user.role === 'supervisor') setLocation('/supervisor');
-      else if (user.role === 'manager') setLocation('/manager');
+      // If must_change_password is true, force modal and block navigation
+      if (user.must_change_password) {
+        setForceChangePassword(true);
+        setForceUser(user);
+        setShowChangePassword(true);
+      } else {
+        if (user.role === 'attendant') setLocation('/attendant');
+        else if (user.role === 'supervisor') setLocation('/supervisor');
+        else if (user.role === 'manager') setLocation('/manager');
+      }
     }
   }, [user, setLocation]);
 
@@ -63,29 +73,49 @@ export default function LoginPage() {
 
 
       {/* Change Password Modal */}
-      {showChangePassword && (
+      {(showChangePassword || forceChangePassword) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-6 relative" onClick={e => e.stopPropagation()}>
-            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold" onClick={() => setShowChangePassword(false)} aria-label="Close">×</button>
+            {/* Only allow closing if not forced */}
+            {!forceChangePassword && (
+              <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold" onClick={() => setShowChangePassword(false)} aria-label="Close">×</button>
+            )}
             <h3 className="font-bold text-lg mb-4 text-center">Change Password</h3>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 setCpError("");
                 setCpSuccess("");
-                if (!cpUsername || !cpOldPassword || !cpNewPassword || !cpConfirmPassword) {
+                // If forced, use forceUser for username and old password
+                const usernameToCheck = forceChangePassword && forceUser ? forceUser.username : cpUsername;
+                const oldPasswordToCheck = forceChangePassword && forceUser ? password : cpOldPassword;
+                const newPasswordToSet = cpNewPassword;
+                const confirmPasswordToSet = cpConfirmPassword;
+                if (!usernameToCheck || !oldPasswordToCheck || !newPasswordToSet || !confirmPasswordToSet) {
                   setCpError("All fields are required.");
                   return;
                 }
-                if (cpNewPassword !== cpConfirmPassword) {
-                  setCpError("New passwords do not match.");
+                if (newPasswordToSet.length < 8) {
+                  setCpError("Password must be at least 8 characters long.");
+                  return;
+                }
+                if (!/^[A-Z]/.test(newPasswordToSet)) {
+                  setCpError("Password must start with a capital letter.");
+                  return;
+                }
+                if (!/[0-9]/.test(newPasswordToSet)) {
+                  setCpError("Password must contain at least one number.");
+                  return;
+                }
+                if (newPasswordToSet !== confirmPasswordToSet) {
+                  setCpError("Passwords do not match.");
                   return;
                 }
                 // 1. Check user exists and old password is correct
                 const { data: userRows, error: userErr } = await supabase
                   .from('users')
                   .select('*')
-                  .eq('username', cpUsername)
+                  .eq('username', usernameToCheck)
                   .eq('role', 'attendant')
                   .single();
                 if (userErr || !userRows) {
@@ -93,14 +123,14 @@ export default function LoginPage() {
                   return;
                 }
                 // 2. Check old password
-                if (userRows.password !== cpOldPassword) {
+                if (userRows.password_hash !== oldPasswordToCheck) {
                   setCpError("Old password is incorrect.");
                   return;
                 }
-                // 3. Update password
+                // 3. Update password and clear must_change_password
                 const { error: updateErr } = await supabase
                   .from('users')
-                  .update({ password: cpNewPassword })
+                  .update({ password_hash: newPasswordToSet, must_change_password: false })
                   .eq('id', userRows.id);
                 if (updateErr) {
                   setCpError("Failed to update password.");
@@ -109,31 +139,51 @@ export default function LoginPage() {
                 setCpSuccess("Password changed successfully!");
                 setTimeout(() => {
                   setShowChangePassword(false);
+                  setForceChangePassword(false);
+                  setForceUser(null);
                   setCpUsername("");
                   setCpOldPassword("");
                   setCpNewPassword("");
                   setCpConfirmPassword("");
                   setCpError("");
                   setCpSuccess("");
+                  // Optionally reload page or redirect
+                  window.location.reload();
                 }, 1500);
               }}
               className="space-y-3"
             >
-              <input
-                type="text"
-                className="w-full px-3 py-2 rounded border border-gray-300 bg-white/50"
-                placeholder="Username"
-                value={cpUsername}
-                onChange={e => setCpUsername(e.target.value)}
-              />
-              <input
-                type="password"
-                className="w-full px-3 py-2 rounded border border-gray-300 bg-white/50"
-                placeholder="Old Password"
-                value={cpOldPassword}
-                onChange={e => setCpOldPassword(e.target.value)}
-                autoComplete="current-password"
-              />
+              {/* If forced, show only new password fields, else show all fields */}
+              {!forceChangePassword && (
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 rounded border border-gray-300 bg-white/50"
+                  placeholder="Username"
+                  value={cpUsername}
+                  onChange={e => setCpUsername(e.target.value)}
+                />
+              )}
+              {!forceChangePassword && (
+                <input
+                  type="password"
+                  className="w-full px-3 py-2 rounded border border-gray-300 bg-white/50"
+                  placeholder="Old Password"
+                  value={cpOldPassword}
+                  onChange={e => setCpOldPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              )}
+              {forceChangePassword && (
+                <input
+                  type="password"
+                  className="w-full px-3 py-2 rounded border border-gray-300 bg-white/50"
+                  placeholder="Old Password"
+                  value={password}
+                  onChange={e => {}}
+                  autoComplete="current-password"
+                  disabled
+                />
+              )}
               <input
                 type="password"
                 className="w-full px-3 py-2 rounded border border-gray-300 bg-white/50"
@@ -152,12 +202,37 @@ export default function LoginPage() {
               />
               {cpError && <div className="text-red-600 text-sm text-center">{cpError}</div>}
               {cpSuccess && <div className="text-green-600 text-sm text-center">{cpSuccess}</div>}
-              <button
-                type="submit"
-                className="w-full py-2 rounded-lg font-semibold text-base transition bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-black border border-gray-300 shadow focus:ring-2 focus:ring-blue-400"
-              >
-                Change Password
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-lg font-semibold text-base transition bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-black border border-gray-300 shadow focus:ring-2 focus:ring-blue-400"
+                >
+                  Change Password
+                </button>
+                {forceChangePassword && (
+                  <button
+                    type="button"
+                    className="flex-1 py-2 rounded-lg font-semibold text-base transition bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 border border-gray-300 shadow focus:ring-2 focus:ring-gray-400"
+                    onClick={() => {
+                      // Log out and close modal
+                      setForceChangePassword(false);
+                      setForceUser(null);
+                      setShowChangePassword(false);
+                      setCpUsername("");
+                      setCpOldPassword("");
+                      setCpNewPassword("");
+                      setCpConfirmPassword("");
+                      setCpError("");
+                      setCpSuccess("");
+                      localStorage.removeItem('user');
+                      localStorage.removeItem('sessionExpiry');
+                      window.location.reload();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         </div>

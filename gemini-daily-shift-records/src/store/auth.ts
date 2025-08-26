@@ -2,6 +2,7 @@
 import { atom } from "jotai";
 
 export interface AuthUser {
+  must_change_password: any;
   id: string;
   username: string;
   role: string;
