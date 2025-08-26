@@ -179,7 +179,7 @@ export default function LoginPage() {
                   className="w-full px-3 py-2 rounded border border-gray-300 bg-white/50"
                   placeholder="Old Password"
                   value={password}
-                  onChange={e => {}}
+                  onChange={_e => {}}
                   autoComplete="current-password"
                   disabled
                 />
