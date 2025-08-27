@@ -280,7 +280,7 @@ export default function LoginPage() {
         {error && <div className="text-red-500 mb-3 text-sm text-center">{error}</div>}
         <button
           type="submit"
-          className="w-full py-2 rounded-lg font-semibold text-base transition bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-black border border-gray-300 shadow focus:ring-2 focus:ring-blue-400"
+          className="w-full py-2 pb-2 rounded-lg font-semibold text-base transition bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-black border border-gray-300 shadow focus:ring-2 focus:ring-blue-400"
           style={{ fontFamily: 'inherit', letterSpacing: 0.5 }}
         >
           Login
@@ -289,7 +289,7 @@ export default function LoginPage() {
         <div className="absolute left-4 bottom-4">
           <button
             type="button"
-            className="text-black pl-5 pt-2 font-semibold text-sm hover:text-gray-100"
+            className="text-black pl-5 py-1 pt-2 font-semibold text-sm hover:text-gray-100"
             style={{letterSpacing: 0.5, textDecoration: 'none'}} 
             onClick={() => setShowChangePassword(true)}
           >
