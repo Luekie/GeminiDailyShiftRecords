@@ -59,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-gray-200 relative"
+      className="min-h-screen flex items-center justify-center bg-gray-200 relative p-2 sm:p-0"
       style={{
         backgroundImage: 'url("/puma.jpg")',
         backgroundSize: 'cover',
@@ -70,12 +70,20 @@ export default function LoginPage() {
         color: '#111',
       }}
     >
+  {login.isPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <svg className="animate-spin h-12 w-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+        </div>
+      )}
 
 
       {/* Change Password Modal */}
       {(showChangePassword || forceChangePassword) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-6 relative" onClick={e => e.stopPropagation()}>
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-2 sm:p-6 relative" onClick={e => e.stopPropagation()}>
             {/* Only allow closing if not forced */}
             {!forceChangePassword && (
               <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold" onClick={() => setShowChangePassword(false)} aria-label="Close">×</button>
@@ -241,7 +249,7 @@ export default function LoginPage() {
       {/* Login Form */}
       <form
         onSubmit={handleLogin}
-        className="max-w-sm w-full p-8 bg-white/40 rounded-2xl shadow-lg border border-gray-200 relative"
+  className="max-w-sm w-full p-4 sm:p-8 bg-white/40 rounded-2xl shadow-lg border border-gray-200 relative"
         style={{ boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)' }}
       >
         <h2

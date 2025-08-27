@@ -314,7 +314,7 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
   };
 
   return (
-    <div className="min-h-screen p-4" style={{
+  <div className="min-h-screen p-2 sm:p-4" style={{
       backgroundImage: 'url("/puma.jpg")',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
@@ -323,7 +323,7 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
       fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
       color: '#111',
     }}>
-      <div className="flex justify-between items-center mb-4" style={{
+  <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0" style={{
         borderBottom: '1px solid #d1d1d6',
         paddingBottom: '0.5rem',
         marginBottom: '1.5rem',
@@ -331,7 +331,7 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
         <h2 className="text-2xl font-bold">
           Welcome, {user?.username || "Administrator"}!
         </h2>
-        <div className="flex gap-2 items-center">
+  <div className="flex flex-col sm:flex-row gap-2 items-center">
           <Button
             onClick={() => setShowAllModal(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -350,8 +350,8 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
       </div>
       {/* Show All Records Modal */}
       {showAllModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6 relative">
+  <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-2">
+          <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto p-2 sm:p-6 relative">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-2xl font-bold"
               onClick={() => setShowAllModal(false)}
@@ -359,21 +359,21 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
             >
               ×
             </button>
-            <h2 className="text-xl font-bold mb-4">All Records for {selectedDate}</h2>
+            <h2 className="text-xl font-bold mb-2 sm:mb-4">All Records for {selectedDate}</h2>
             {records.length === 0 ? (
               <p className="text-gray-600">No records for this day.</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2 sm:space-y-4">
                 {records.map((rec, idx) => (
-                  <div key={rec.id || idx} className="border-b pb-3 mb-3">
-                    <div className="font-semibold text-blue-700 text-lg flex gap-2 items-center">
+                  <div key={rec.id || idx} className="border-b pb-2 sm:pb-3 mb-2 sm:mb-3">
+                    <div className="font-semibold text-blue-700 text-lg flex flex-col sm:flex-row gap-1 sm:gap-2 items-start sm:items-center">
                       <span className="bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 mr-2">{idx + 1}</span>
                       {rec.attendant?.username || rec.attendant_id} <span className="text-gray-500">|</span> {pumpMap[rec.pump_id] || rec.pump_id}
                       <span className="text-gray-500">|</span> {rec.shift_type?.toUpperCase()} Shift
                       <span className="text-gray-500">|</span> {rec.shift_date}
                       <span className="text-gray-500">|</span> {rec.shift_type === 'day' ? '6:30am - 3:30pm' : '3:30pm - 6:30am'}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-2 text-sm">
                       <div>Cash: <span className="font-bold">{rec.cash_received?.toLocaleString() ?? 0} MWK</span></div>
                       <div>Prepaid: <span className="font-bold">{rec.prepayment_received?.toLocaleString() ?? 0} MWK</span></div>
                       <div>Credit: <span className="font-bold">{rec.credit_received?.toLocaleString() ?? 0} MWK</span></div>
@@ -436,7 +436,14 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
         <Card className="bg-white/50">
           <CardContent>
             <h2 className="font-bold text-xl">Attendants</h2>
-            {isLoading && <p>Loading...</p>}
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <svg className="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+              </div>
+            )}
             {queryError && (
               <p className="text-red-600">Error loading summaries</p>
             )}

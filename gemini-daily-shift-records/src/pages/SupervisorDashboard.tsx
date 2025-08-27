@@ -176,12 +176,19 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
     return { label, value, expected, collected };
   }
 
-  if (isLoading) return <p>Loading...</p>;
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <svg className="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+      </svg>
+    </div>
+  );
   if (error) return <p className="text-red-600">Error loading submissions</p>;
 
   return (
     <div
-      className="min-h-screen p-4"
+  className="min-h-screen p-2 sm:p-4"
       style={{
         backgroundImage: 'url("/puma.jpg")',
         backgroundSize: "cover",
@@ -193,13 +200,13 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
       }}
     >
       {/* Header */}
-      <div className="flex justify-between items-center mb-4" style={{ borderBottom: "1px solid #d1d1d6", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
+  <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0" style={{ borderBottom: "1px solid #d1d1d6", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
         <h2 className="text-2xl font-bold">Welcome, Supervisor {user?.username || ""}!</h2>
         <Button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white" style={{ borderRadius: 8, fontWeight: 600 }}>
           Log Out
         </Button>
       </div>
-      <div className="flex items-center gap-4 mb-6">
+  <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 mb-6">
         <label className="font-semibold">Select Date to Review:</label>
         <input
           type="date"
@@ -215,7 +222,7 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
         </select>
       </div>
       {/* Section buttons */}
-      <div className="flex gap-4 mb-6">
+  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-6">
   <Button variant={section === 'pending' ? 'default' : 'outline'} onClick={() => setSection('pending')}>Pending Authorisation</Button>
   <Button variant={section === 'authorised' ? 'default' : 'outline'} onClick={() => { setSection('authorised'); setAuthorisedAttendant(null); setAuthorisedPump(null); }}>Authorised Shifts (History)</Button>
   <Button variant={section === 'fix' ? 'default' : 'outline'} onClick={() => setSection('fix')}>Requested for Fix</Button>
@@ -225,9 +232,9 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
       {section === 'authorised' && (
         <div>
           {Object.keys(authorisedByAttendantAndPump).length === 0 ? (
-            <div className="ml-6 mt-2 text-white font-semibold ">None</div>
+      <div className="ml-2 sm:ml-6 mt-2 text-white font-semibold ">None</div>
           ) : !authorisedAttendant ? (
-            <ol className="list-decimal ml-6 mt-2">
+            <ol className="list-decimal ml-2 sm:ml-6 mt-2">
               {Object.keys(authorisedByAttendantAndPump).map((attendant) => (
                 <li key={attendant} className="mb-2">
                   <Button variant="outline" className="bg-white/60 text-black" onClick={() => setAuthorisedAttendant(attendant)}>{attendant}</Button>
@@ -235,7 +242,7 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
               ))}
             </ol>
           ) : !authorisedPump ? (
-            <div className="ml-6 mt-2">
+            <div className="ml-2 sm:ml-6 mt-2">
               <Button variant="outline" className="bg-white/50 text-black mb-2" onClick={() => setAuthorisedAttendant(null)}>Back to Attendants</Button>
               <div className="font-semibold mb-2">Pumps for {authorisedAttendant}:</div>
               {Object.keys(authorisedByAttendantAndPump[authorisedAttendant]).map(pump => (
@@ -243,7 +250,7 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
               ))}
             </div>
           ) : (
-            <div className="ml-6 mt-2">
+            <div className="ml-2 sm:ml-6 mt-2">
               <Button className="mb-2" onClick={() => setAuthorisedPump(null)}>Back to Pumps</Button>
               <div className="font-semibold mb-2">History for {authorisedAttendant} - {authorisedPump}:</div>
               {authorisedByAttendantAndPump[authorisedAttendant][authorisedPump].map((submission: any, idx: number) => (

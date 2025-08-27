@@ -419,7 +419,14 @@ useEffect(() => {
 
 
   if (loading || !user) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <svg className="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+      </div>
+    );
   }
 
 
@@ -467,18 +474,18 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
 
   return (
 
-    <div className=" relative min-h-screen w-full p-4 space-y-4 ">
+  <div className="relative min-h-screen w-full p-2 sm:p-4 space-y-4 ">
 
     
-      <div className="flex flex-wrap items-center justify-between gap-2 px-2">
+  <div className="flex flex-col sm:flex-row flex-wrap items-center justify-between gap-2 px-1 sm:px-2">
       <h2 className="text-base font-semibold text-white">
         Welcome, {user?.username || 'Guest'}!
       </h2>
 
       
-    <div className="relative">
+  <div className="relative w-full max-w-lg mx-auto">
   <button
-    className="justify-center"
+  className="justify-center flex-col sm:flex-row"
     onClick={() => {
       setShowNotifications(true);
       setViewedNotifications(true); // Mark notifications as viewed
@@ -517,7 +524,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
             {fixNotifications.map((n) => (
               <button
                 key={n.id}
-                className="w-full text-left px-4 py-2 rounded bg-orange-50 hover:bg-orange-100 border border-orange-200 flex flex-col"
+              className="w-full text-left px-2 sm:px-4 py-2 rounded bg-orange-50 hover:bg-orange-100 border border-orange-200 flex flex-col"
                 onClick={() => {
                   setShowNotifications(false);
                   setViewedNotifications(true); // Mark notifications as viewed
@@ -557,8 +564,8 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
 
     
 
-      <div className="flex items-center mb-6 gap-4"> {/* Increased bottom margin and gap */}
-        <div className="flex items-center space-x-4"> {/* Group for shift selector with spacing */}
+  <div className="flex flex-col sm:flex-row items-center mb-6 gap-2 sm:gap-4"> {/* Responsive layout */}
+  <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4"> {/* Responsive group */}
           <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
             Select Shift:
           </label>
