@@ -77,6 +77,8 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
   // Flat filtered submissions
   const filteredSubmissions = (submissions || []).filter((sub: any) => {
     if (shiftFilter !== 'all' && sub.shift_type !== shiftFilter) return false;
+    // Only show submissions for the selected date
+    if (sub.shift_date !== selectedDate) return false;
     return true;
   });
 
@@ -293,12 +295,12 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
         <div>
           {pending.length === 0 ? <div className="ml-6 mt-2 text-white font-semibold text-xl">None</div> :
             pending.map((submission: any) => (
-              <Card key={submission.id} className="bg-white/80 shadow-md mb-4" style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}>
-                <CardContent className="space-y-2 p-4" style={{ background: "#fff", borderRadius: 10 }}>
+              <div key={submission.id} className="mb-2">
+                <CardContent className="space-y-2 p-4 shadow-md" style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10 }}>
                   <p className="text-lg font-bold">Attendant: {submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}</p>
                   <p>Pump: {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || '?'}</p>
                   <p>Shift: {submission.shift_type}</p>
-                  <p>Date: {submission.shift_date}</p>
+                  <p>Date: {submission.shift_date}{submission.created_at ? `, Time: ${new Date(submission.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : ''}</p>
                   <p>Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
                   <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
                   <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
@@ -342,7 +344,7 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
+              </div>
             ))}
         </div>
       )}

@@ -1,12 +1,17 @@
 import { supabase } from './supabase';
 
 export const fetchShiftsForDate = async (selectedDate: string) => {
+
+  // Use local date formatting (YYYY-MM-DD) instead of UTC
   const date = new Date(selectedDate);
   const previousDate = new Date(date);
   previousDate.setDate(previousDate.getDate() - 1);
 
-  const formattedDate = date.toISOString().slice(0, 10);
-  const formattedPrevDate = previousDate.toISOString().slice(0, 10);
+  function formatLocalDate(d: Date) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  const formattedDate = formatLocalDate(date);
+  const formattedPrevDate = formatLocalDate(previousDate);
 
   const { data, error } = await supabase
     .from('shifts')

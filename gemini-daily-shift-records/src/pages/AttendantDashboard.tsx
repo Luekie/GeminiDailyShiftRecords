@@ -218,7 +218,9 @@ const [, setSubmittedPumps] = useState<string[]>([]);
 useEffect(() => {
   async function fetchSubmittedPumps() {
     if (!user) return;
-    const today = new Date().toISOString().slice(0, 10);
+  // Use local date for today
+  const now = new Date();
+  const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     const { data, error } = await supabase
       .from('shifts')
       .select('pump_id')
@@ -250,7 +252,9 @@ for (const r of pumpReadings) {
       if (!pumpReadings.length) throw new Error('No pump readings entered');
 
       // Check for duplicate submissions for any pump (any attendant)
-      const today = new Date().toISOString().slice(0, 10);
+  // Use local date for today
+  const now = new Date();
+  const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       for (const r of pumpReadings) {
         // Query shifts table for any record with this pump, date, and shift type
         const { data: existingShifts, error: checkError } = await supabase
