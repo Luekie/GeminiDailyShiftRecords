@@ -116,10 +116,10 @@ export default function LoginPage() {
                   .from('users')
                   .select('*')
                   .eq('username', usernameToCheck)
-                  .eq('role', 'attendant')
+                  .in('role', ['attendant', 'supervisor' , 'manager'])
                   .single();
                 if (userErr || !userRows) {
-                  setCpError("User not found or not an attendant.");
+                  setCpError("User not found .");
                   return;
                 }
                 // 2. Check old password
