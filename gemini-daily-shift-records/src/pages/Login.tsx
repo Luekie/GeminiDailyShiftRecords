@@ -59,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <div
-  className="min-h-screen flex items-center justify-center bg-gray-200 relative p-2 sm:p-0"
+  className="min-h-screen flex items-center justify-center bg-gray-200 relative p-2 pb-2 sm:p-0"
       style={{
         backgroundImage: 'url("/puma.jpg")',
         backgroundSize: 'cover',
@@ -286,7 +286,7 @@ export default function LoginPage() {
           Login
         </button>
         <div className="pt-4 text-lg text-black font-bold  text-center"></div>
-        <div className="absolute left-4 bottom-4">
+        <div className="absolute pt-2 left-4 bottom-4">
           <button
             type="button"
             className="text-black pl-5 py-1 pt-2 font-semibold text-sm hover:text-gray-100"
