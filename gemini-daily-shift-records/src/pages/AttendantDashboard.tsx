@@ -489,7 +489,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
       {/* Foreground content */}
       <div className="relative min-h-screen w-full p-2 sm:p-4 space-y-4 z-10">
         <div>
-          <div className="flex flex-col sm:flex-row w-full items-center justify-between gap-2 px-1 sm:px-2">
+          <div className="flex flex-col sm:flex-row w-full  justify-between gap-2 px-1 sm:px-2">
       <h2 className="text-base font-semibold text-white truncate">
         Welcome, {user?.username || 'Guest'}!
       </h2>
