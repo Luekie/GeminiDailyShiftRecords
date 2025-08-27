@@ -59,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-gray-200 relative p-2 sm:p-0"
+  className="min-h-screen flex items-center justify-center bg-gray-200 relative p-2 sm:p-0"
       style={{
         backgroundImage: 'url("/puma.jpg")',
         backgroundSize: 'cover',
@@ -70,14 +70,6 @@ export default function LoginPage() {
         color: '#111',
       }}
     >
-  {login.isPending && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <svg className="animate-spin h-12 w-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-          </svg>
-        </div>
-      )}
 
 
       {/* Change Password Modal */}
@@ -297,7 +289,7 @@ export default function LoginPage() {
         <div className="absolute left-4 bottom-4">
           <button
             type="button"
-            className="text-black pl-5 font-semibold text-sm hover:text-gray-100"
+            className="text-black pl-5 pt-2 font-semibold text-sm hover:text-gray-100"
             style={{letterSpacing: 0.5, textDecoration: 'none'}} 
             onClick={() => setShowChangePassword(true)}
           >
