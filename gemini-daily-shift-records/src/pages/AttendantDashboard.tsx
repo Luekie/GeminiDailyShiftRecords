@@ -476,8 +476,8 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
 
   <div className="relative min-h-screen w-full p-2 sm:p-4 space-y-4 ">
 
-    
-  <div className="flex flex-col sm:flex-row flex-wrap  justify-between gap-2 px-1 sm:px-2">
+   <div>
+  <div className="flex flex-col sm:flex-row flex-wrap items-center justify-between gap-2 px-1 sm:px-2">
       <h2 className="text-base font-semibold text-white">
         Welcome, {user?.username || 'Guest'}!
       </h2>
@@ -562,7 +562,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
       </Button>
     </div>
 
-    
+    </div>    
 
   <div className="flex flex-col sm:flex-row items-center mb-6 gap-2 sm:gap-4"> {/* Responsive layout */}
   <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4"> {/* Responsive group */}
