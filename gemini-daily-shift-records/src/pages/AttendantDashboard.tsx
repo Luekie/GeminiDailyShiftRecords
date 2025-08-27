@@ -483,7 +483,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
       </h2>
 
       
-  <div className="relative w-full max-w-lg mx-auto">
+  <div className="relative justify-center flex  max-w-lg mx-auto">
   <button
   className="justify-center flex-col sm:flex-row"
     onClick={() => {
@@ -492,7 +492,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
     }}
     title="Fix Requests"
   >
-    <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
+    <svg width="28" height="28" fill="none" viewBox="0 0 24 24" >
       <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-5-6.32V4a1 1 0 1 0-2 0v.68C7.63 5.36 6 7.92 6 11v5l-1.29 1.29A1 1 0 0 0 6 19h12a1 1 0 0 0 .71-1.71L18 16z" fill="#f59e42"/>
     </svg>
     {fixNotifications.length > 0 && !viewedNotifications && (
