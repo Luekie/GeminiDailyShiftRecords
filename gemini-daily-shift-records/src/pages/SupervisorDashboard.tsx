@@ -214,9 +214,9 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
       </div>
       {/* Section buttons */}
       <div className="flex gap-4 mb-6">
-        <Button variant={section === 'authorised' ? 'default' : 'outline'} onClick={() => { setSection('authorised'); setAuthorisedAttendant(null); setAuthorisedPump(null); }}>Authorised Shifts (History)</Button>
-        <Button variant={section === 'pending' ? 'default' : 'outline'} onClick={() => setSection('pending')}>Pending Authorisation</Button>
-        <Button variant={section === 'fix' ? 'default' : 'outline'} onClick={() => setSection('fix')}>Requested for Fix</Button>
+  <Button variant={section === 'pending' ? 'default' : 'outline'} onClick={() => setSection('pending')}>Pending Authorisation</Button>
+  <Button variant={section === 'authorised' ? 'default' : 'outline'} onClick={() => { setSection('authorised'); setAuthorisedAttendant(null); setAuthorisedPump(null); }}>Authorised Shifts (History)</Button>
+  <Button variant={section === 'fix' ? 'default' : 'outline'} onClick={() => setSection('fix')}>Requested for Fix</Button>
       </div>
       {notification && <div className="bg-green-100 text-green-800 p-2 rounded mb-2 text-center">{notification}</div>}
       {/* Section content */}
@@ -291,7 +291,7 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
       )}
       {section === 'pending' && (
         <div>
-          {pending.length === 0 ? <div className="ml-6 mt-2 text-gray-500">None</div> :
+          {pending.length === 0 ? <div className="ml-6 mt-2 text-white font-semibold text-xl">None</div> :
             pending.map((submission: any) => (
               <Card key={submission.id} className="bg-white/80 shadow-md mb-4" style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}>
                 <CardContent className="space-y-2 p-4" style={{ background: "#fff", borderRadius: 10 }}>
@@ -348,7 +348,7 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
       )}
       {section === 'fix' && (
         <div>
-          {requestedFix.length === 0 ? <div className="ml-6 mt-2 text-gray-500">None</div> :
+          {requestedFix.length === 0 ? <div className="ml-6 mt-2 text-white font-semibold text-xl">None</div> :
             requestedFix.map((submission: any) => (
               <Card key={submission.id} className="bg-yellow-50 shadow-md mb-4" style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}>
                 <CardContent className="space-y-2 p-4" style={{ background: "#fffbe6", borderRadius: 10 }}>
