@@ -59,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <div
-  className="min-h-screen flex items-center justify-center bg-gray-200 relative p-2 pb-2 sm:p-0"
+      className="min-h-screen flex items-center justify-center bg-gray-200 relative"
       style={{
         backgroundImage: 'url("/puma.jpg")',
         backgroundSize: 'cover',
@@ -74,8 +74,8 @@ export default function LoginPage() {
 
       {/* Change Password Modal */}
       {(showChangePassword || forceChangePassword) && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-2 sm:p-6 relative" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-6 relative" onClick={e => e.stopPropagation()}>
             {/* Only allow closing if not forced */}
             {!forceChangePassword && (
               <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold" onClick={() => setShowChangePassword(false)} aria-label="Close">×</button>
@@ -241,7 +241,7 @@ export default function LoginPage() {
       {/* Login Form */}
       <form
         onSubmit={handleLogin}
-  className="max-w-sm w-full p-4 sm:p-8 bg-white/40 rounded-2xl shadow-lg border border-gray-200 relative"
+        className="max-w-sm w-full p-8 bg-white/40 rounded-2xl shadow-lg border border-gray-200 relative"
         style={{ boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)' }}
       >
         <h2
@@ -280,16 +280,16 @@ export default function LoginPage() {
         {error && <div className="text-red-500 mb-3 text-sm text-center">{error}</div>}
         <button
           type="submit"
-          className="w-full py-2 pb-2 rounded-lg font-semibold text-base transition bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-black border border-gray-300 shadow focus:ring-2 focus:ring-blue-400"
+          className="w-full py-2 rounded-lg font-semibold text-base transition bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-black border border-gray-300 shadow focus:ring-2 focus:ring-blue-400"
           style={{ fontFamily: 'inherit', letterSpacing: 0.5 }}
         >
           Login
         </button>
         <div className="pt-4 text-lg text-black font-bold  text-center"></div>
-        <div className="absolute pt-2 left-4 bottom-4">
+        <div className="absolute left-4 bottom-4">
           <button
             type="button"
-            className="text-black pl-5 py-1 pt-2 font-semibold text-sm hover:text-gray-100"
+            className="text-black pl-5 font-semibold text-sm hover:text-gray-100"
             style={{letterSpacing: 0.5, textDecoration: 'none'}} 
             onClick={() => setShowChangePassword(true)}
           >
