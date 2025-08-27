@@ -10,7 +10,7 @@ import { useLocation } from "wouter";
 import { fetchShiftsForDate } from "@/lib/useFetchShiftsForDate";
 
 
-const approveSubmission = async (id: string) => {
+const authoriseSubmission = async (id: string) => {
   const { data, error } = await supabase
     .from("shifts")
     .update({ is_approved: true })
@@ -58,26 +58,10 @@ export default function SupervisorApproval() {
   return today.toISOString().slice(0, 10);
 });
 
-
-// Main submissions for filtered/approved/pending/fix sections
 const { data: submissions = [], isLoading, error } = useQuery({
   queryKey: ['submissions', selectedDate],
   queryFn: () => fetchShiftsForDate(selectedDate),
 });
-
-// All submissions for the date (for Attendant Submissions section, no filter)
-const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
-useEffect(() => {
-  async function fetchAll() {
-    const { data, error } = await supabase
-      .from('shifts')
-      .select('* , attendant:attendant_id(username)')
-      .eq('shift_date', selectedDate);
-    if (!error && data) setAllSubmissions(data);
-    else setAllSubmissions([]);
-  }
-  fetchAll();
-}, [selectedDate]);
 
   const [modal, setModal] = useState<{ open: boolean; submission: Submission | null }>({
     open: false,
@@ -88,23 +72,13 @@ useEffect(() => {
   const [notification, setNotification] = useState<string>("");
   const [shiftFilter, setShiftFilter] = useState<'all' | 'day' | 'night'>('all');
   // Section selection state
-const [section, setSection] = useState<'approved' | 'pending' | 'fix' | 'attendants'>('pending');
+const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pending');
 
   // Flat filtered submissions
   const filteredSubmissions = (submissions || []).filter((sub: any) => {
     if (shiftFilter !== 'all' && sub.shift_type !== shiftFilter) return false;
     return true;
   });
-
-  // Group all submissions by attendant for the new section (use allSubmissions)
-  const allByAttendant: Record<string, any[]> = {};
-  (allSubmissions || []).forEach((s: any) => {
-    const attendant = s.attendant?.username || s.attendant_id || 'Unknown Attendant';
-    if (!allByAttendant[attendant]) allByAttendant[attendant] = [];
-    allByAttendant[attendant].push(s);
-  });
-
-  const [attendantView, setAttendantView] = useState<string | null>(null);
 
   // Fetch pump names for mapping
   useEffect(() => {
@@ -121,8 +95,8 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix' | 'attenda
     fetchPumps();
   }, []);
 
-  const approve = useMutation({
-    mutationFn: approveSubmission,
+  const authorise = useMutation({
+    mutationFn: authoriseSubmission,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["submissions"] });
       setNotification("Submission Authorised successfully.");
@@ -151,29 +125,29 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix' | 'attenda
   };
 
   // Categorize submissions
-  const approved = filteredSubmissions.filter((s: any) => s.is_approved);
+  const authorised = filteredSubmissions.filter((s: any) => s.is_approved);
   const pending = filteredSubmissions.filter((s: any) => !s.is_approved && !s.fix_reason);
   const requestedFix = filteredSubmissions.filter((s: any) => !!s.fix_reason);
 
   // State for approved history drilldown
-  const [approvedAttendant, setApprovedAttendant] = useState<string | null>(null);
-  const [approvedPump, setApprovedPump] = useState<string | null>(null);
+  const [authorisedAttendant, setAuthorisedAttendant] = useState<string | null>(null);
+  const [authorisedPump, setAuthorisedPump] = useState<string | null>(null);
 
   // Group approved by attendant and pump
-  const approvedByAttendant: Record<string, any[]> = {};
-  approved.forEach((s: any) => {
+  const authorisedByAttendant: Record<string, any[]> = {};
+  authorised.forEach((s: any) => {
     const attendant = s.attendant?.username || s.attendant_id || 'Unknown Attendant';
-    if (!approvedByAttendant[attendant]) approvedByAttendant[attendant] = [];
-    approvedByAttendant[attendant].push(s);
+    if (!authorisedByAttendant[attendant]) authorisedByAttendant[attendant] = [];
+    authorisedByAttendant[attendant].push(s);
   });
 
-  const approvedByAttendantAndPump: Record<string, Record<string, any[]>> = {};
-  Object.entries(approvedByAttendant).forEach(([attendant, subs]) => {
-    approvedByAttendantAndPump[attendant] = {};
+  const authorisedByAttendantAndPump: Record<string, Record<string, any[]>> = {};
+  Object.entries(authorisedByAttendant).forEach(([attendant, subs]) => {
+    authorisedByAttendantAndPump[attendant] = {};
     subs.forEach((s: any) => {
       const pump = pumpMap[s.pump_id] || s.pump_id || s.pump || '?';
-      if (!approvedByAttendantAndPump[attendant][pump]) approvedByAttendantAndPump[attendant][pump] = [];
-      approvedByAttendantAndPump[attendant][pump].push(s);
+      if (!authorisedByAttendantAndPump[attendant][pump]) authorisedByAttendantAndPump[attendant][pump] = [];
+      authorisedByAttendantAndPump[attendant][pump].push(s);
     });
   });
 
@@ -240,110 +214,39 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix' | 'attenda
       </div>
       {/* Section buttons */}
       <div className="flex gap-4 mb-6">
-        <Button variant={section === 'approved' ? 'default' : 'outline'} onClick={() => { setSection('approved'); setApprovedAttendant(null); setApprovedPump(null); }}>Approved Shifts (History)</Button>
-        <Button variant={section === 'pending' ? 'default' : 'outline'} onClick={() => setSection('pending')}>Pending Approval</Button>
+        <Button variant={section === 'authorised' ? 'default' : 'outline'} onClick={() => { setSection('authorised'); setAuthorisedAttendant(null); setAuthorisedPump(null); }}>Authorised Shifts (History)</Button>
+        <Button variant={section === 'pending' ? 'default' : 'outline'} onClick={() => setSection('pending')}>Pending Authorisation</Button>
         <Button variant={section === 'fix' ? 'default' : 'outline'} onClick={() => setSection('fix')}>Requested for Fix</Button>
-        <Button variant={section === 'attendants' ? 'default' : 'outline'} onClick={() => { setSection('attendants'); setAttendantView(null); }}>Attendant Submissions</Button>
       </div>
-      {section === 'attendants' && (
-        <div>
-          {Object.keys(allByAttendant).length === 0 ? (
-            <div className="ml-6 mt-2 text-gray-500">None</div>
-          ) : !attendantView ? (
-            <ol className="list-decimal ml-6 mt-2">
-              {Object.keys(allByAttendant).map((attendant) => (
-                <li key={attendant} className="mb-2">
-                  <Button variant="outline" onClick={() => setAttendantView(attendant)}>{attendant}</Button>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="ml-6 mt-2">
-              <Button className="mb-2" onClick={() => setAttendantView(null)}>Back to Attendants</Button>
-              <div className="font-semibold mb-2">Submissions for {attendantView}:</div>
-              {allByAttendant[attendantView].map((submission: any, idx: number) => (
-                <Card key={submission.id} className="bg-blue-50 shadow-md mb-2">
-                  <CardContent className="space-y-2 p-4">
-                    <p className="font-bold">#{idx + 1} Date: {submission.shift_date} | Shift: {submission.shift_type}</p>
-                    <p>Pump: <span className="font-bold">{pumpMap[submission.pump_id] || submission.pump_id || submission.pump || '?'}</span></p>
-                    <p>Cash: <span className="font-bold">{submission.cash_received.toLocaleString()} MWK</span></p>
-                    <p>Prepaid: <span className="font-bold">{submission.prepayment_received.toLocaleString()} MWK</span></p>
-                    <p>Credit: <span className="font-bold">{submission.credit_received.toLocaleString()} MWK</span></p>
-                    <p>Fuel Card: <span className="font-bold">{(submission.fuel_card_received || 0).toLocaleString()} MWK</span></p>
-                    <p>FDH Card: <span className="font-bold">{(submission.fdh_card_received || 0).toLocaleString()} MWK</span></p>
-                    <p>National Bank Card: <span className="font-bold">{(submission.national_bank_card_received || 0).toLocaleString()} MWK</span></p>
-                    <p>MO Payment: <span className="font-bold">{(submission.mo_payment_received || 0).toLocaleString()} MWK</span></p>
-                    <p>Own Use Total: <span className="font-bold">{(submission.own_use_total || 0).toLocaleString()} MWK</span></p>
-                    <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
-                    <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
-                    <p>
-                      {getBalance(submission).label !== 'Balanced' ? (
-                        <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                          {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
-                        </span>
-                      ) : (
-                        <span className="text-gray-700 font-bold">Balanced</span>
-                      )}
-                    </p>
-                    {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
-                      <div className="mt-2">
-                        <h4 className="font-semibold">Own Use Details:</h4>
-                        <ul className="list-disc ml-6">
-                          {submission.own_use.map((ou: any, idx: number) => (
-                            <li key={idx}>
-                              {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
-                              {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
-                              {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
-                              Volume: {ou.volume}L, Amount: {ou.amount} MWK
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-4">
-                      <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
-                        <Check className="w-4 h-4" /> Authorise
-                      </Button>
-                      <Button onClick={() => setModal({ open: true, submission })} className="bg-red-600 hover:bg-red-700 text-white">
-                        <X className="w-4 h-4" /> Request Fix
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
       {notification && <div className="bg-green-100 text-green-800 p-2 rounded mb-2 text-center">{notification}</div>}
       {/* Section content */}
-      {section === 'approved' && (
+      {section === 'authorised' && (
         <div>
-          {Object.keys(approvedByAttendantAndPump).length === 0 ? (
-            <div className="ml-6 mt-2 text-gray-500">None</div>
-          ) : !approvedAttendant ? (
+          {Object.keys(authorisedByAttendantAndPump).length === 0 ? (
+            <div className="ml-6 mt-2 text-white font-semibold ">None</div>
+          ) : !authorisedAttendant ? (
             <ol className="list-decimal ml-6 mt-2">
-              {Object.keys(approvedByAttendantAndPump).map((attendant) => (
+              {Object.keys(authorisedByAttendantAndPump).map((attendant) => (
                 <li key={attendant} className="mb-2">
-                  <Button variant="outline" onClick={() => setApprovedAttendant(attendant)}>{attendant}</Button>
+                  <Button variant="outline" className="bg-white/60 text-black" onClick={() => setAuthorisedAttendant(attendant)}>{attendant}</Button>
                 </li>
               ))}
             </ol>
-          ) : !approvedPump ? (
+          ) : !authorisedPump ? (
             <div className="ml-6 mt-2">
-              <Button className="mb-2" onClick={() => setApprovedAttendant(null)}>Back to Attendants</Button>
-              <div className="font-semibold mb-2">Pumps for {approvedAttendant}:</div>
-              {Object.keys(approvedByAttendantAndPump[approvedAttendant]).map(pump => (
-                <Button key={pump} variant="outline" className="m-1" onClick={() => setApprovedPump(pump)}>{pump}</Button>
+              <Button variant="outline" className="bg-white/50 text-black mb-2" onClick={() => setAuthorisedAttendant(null)}>Back to Attendants</Button>
+              <div className="font-semibold mb-2">Pumps for {authorisedAttendant}:</div>
+              {Object.keys(authorisedByAttendantAndPump[authorisedAttendant]).map(pump => (
+                <Button key={pump} variant="outline" className="bg-white/60 m-1" onClick={() => setAuthorisedPump(pump)}>{pump}</Button>
               ))}
             </div>
           ) : (
             <div className="ml-6 mt-2">
-              <Button className="mb-2" onClick={() => setApprovedPump(null)}>Back to Pumps</Button>
-              <div className="font-semibold mb-2">History for {approvedAttendant} - {approvedPump}:</div>
-              {approvedByAttendantAndPump[approvedAttendant][approvedPump].map((submission: any, idx: number) => (
-                <Card key={submission.id} className="bg-green-50 shadow-md mb-2">
-                  <CardContent className="space-y-2 p-4">
+              <Button className="mb-2" onClick={() => setAuthorisedPump(null)}>Back to Pumps</Button>
+              <div className="font-semibold mb-2">History for {authorisedAttendant} - {authorisedPump}:</div>
+              {authorisedByAttendantAndPump[authorisedAttendant][authorisedPump].map((submission: any, idx: number) => (
+                <div key={submission.id} className="mb-2">
+                  <CardContent className="space-y-2 p-4 shadow-md" style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10 }}>
                     <p className="font-bold">#{idx + 1} Date: {submission.shift_date} | Shift: {submission.shift_type}</p>
                     <p>Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
                     <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
@@ -380,7 +283,7 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix' | 'attenda
                       </div>
                     )}
                   </CardContent>
-                </Card>
+                </div>
               ))}
             </div>
           )}
@@ -431,7 +334,7 @@ const [section, setSection] = useState<'approved' | 'pending' | 'fix' | 'attenda
                     </div>
                   )}
                   <div className="flex items-center gap-2 mt-4">
-                    <Button onClick={() => approve.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Button onClick={() => authorise.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
                       <Check className="w-4 h-4" /> Authorise
                     </Button>
                     <Button onClick={() => setModal({ open: true, submission })} className="bg-red-600 hover:bg-red-700 text-white">

@@ -413,7 +413,8 @@ useEffect(() => {
     }
   }, []);
 
-   if (loading) {
+
+  if (loading || !user) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
@@ -613,13 +614,14 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
           </div>
 
           {/* Multi-pump entry section start */}
-          <div className="space-y-4">
+            <div className="space-y-4">
             <Button
-              variant="outline"
-              className="bg-white/50 mb-4"
+              variant="default"
+              className="bg-black/60 hover:bg-white/10 hover:text-black text-white font-bold rounded-lg mb-4 px-6 py-4 flex items-center justify-center text-lg shadow transition-all"
+              style={{ minWidth: 140, minHeight: 56 }}
               onClick={() => setShowPumpModal(true)}
             >
-              add pump
+              <span className="mr-2 text-2xl">+</span> Add Pump
             </Button>
 
             {/* Modal for adding pump reading */}

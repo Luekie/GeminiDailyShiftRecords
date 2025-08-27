@@ -24,20 +24,20 @@ export function PreviousSubmissions({ date, pumpMap }: { date: string; pumpMap: 
         color: "#111",
       }}
     >
-      <div className="font-semibold text-blue-700 mb-1">Previous Submissions:</div>
+      <div className="font-semibold text-blue-700 mb-1">Previous Submissions (Authorised):</div>
       {data.map((sub: any) => (
         <Card
           key={sub.id}
-          className="bg-white/80 border shadow-sm mb-2"
-          style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}
+          className="bg-white/50 border shadow-sm mb-2"
+          style={{ borderRadius: 12, border: "1px solid #e5e5ea", background: "rgba(255,255,255,0.5)" }}
         >
-          <CardContent style={{ background: "#fff", borderRadius: 10 }}>
+          <CardContent style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10 }}>
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-bold">{sub.attendant?.username || sub.attendant_id}</span> - Pump{" "}
                 {pumpMap[sub.pump_id] || sub.pump_id}
               </div>
-              {sub.is_approved && <Check className="text-green-600 w-4 h-4" />}
+              {sub.is_approved && <span className="text-green-700 font-semibold ml-2">Authorised <Check className="inline w-4 h-4 align-text-bottom" /></span>}
             </div>
             <div className="text-sm text-gray-700">
               Shift: {sub.shift_type} | Opening: {sub.opening_reading} | Closing: {sub.closing_reading} | Cash:{" "}
