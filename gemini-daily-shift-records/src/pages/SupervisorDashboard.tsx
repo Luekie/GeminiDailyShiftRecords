@@ -315,18 +315,6 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
                   <p>FDH Card: <span className="font-bold">{submission.fdh_card_received || 0} MWK</span></p>
                   <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
                   <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
-                  <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
-                  <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
-                  <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
-                  <p>
-                    {getBalance(submission).label !== 'Balanced' ? (
-                      <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                        {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
-                      </span>
-                    ) : (
-                      <span className="text-gray-700 font-bold">Balanced</span>
-                    )}
-                  </p>
                   {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
                     <div className="mt-2">
                       <h4 className="font-semibold">Own Use Details:</h4>
@@ -342,6 +330,18 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
                       </ul>
                     </div>
                   )}
+                  <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
+                  <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
+                  <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
+                  <p>
+                    {getBalance(submission).label !== 'Balanced' ? (
+                      <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                        {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
+                      </span>
+                    ) : (
+                      <span className="text-gray-700 font-bold">Balanced</span>
+                    )}
+                  </p>
                   <div className="flex items-center gap-2 mt-4">
                     <Button onClick={() => authorise.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
                       <Check className="w-4 h-4" /> Authorise
