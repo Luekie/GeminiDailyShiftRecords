@@ -20,11 +20,6 @@ interface PaymentEntry {
 }
 
 
-interface Reading {
-  opening: number;
-  closing: number;
-}
-
 
 const AttendantDashboard = () => {
   const { isDarkMode, toggleDarkMode } = useTheme();
@@ -79,8 +74,7 @@ const AttendantDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showReadings, setShowReadings] = useState(false);
   const [shift, setShift] = useState<'day' | 'night'>('day');
-  const [selectedPumpId, setSelectedPumpId] = useState<string>("");
-  const [reading, setReading] = useState<Reading>({ opening: 0, closing: 0 });
+
   const [cash, setCash] = useState('');
   const [prepayments, setPrepayments] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
   const [credits, setCredits] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
@@ -250,10 +244,7 @@ useEffect(() => {
     );
   }
 
-  // Debug log to use variables and prevent TS warnings (can be removed in production)
-  if (process.env.NODE_ENV === 'development') {
-    console.debug('State values:', { selectedPumpId, reading });
-  }
+
 
   const submitShift = useMutation({
     mutationFn: async () => {
@@ -349,8 +340,6 @@ useEffect(() => {
       alert('Submitted successfully!');
       setSubmitted(true);
       setPumpReadings([]);
-      setSelectedPumpId("");
-      setReading({ opening: 0, closing: 0 });
       setCash('');
       setPrepayments([{ name: '', amount: '' }]);
       setCredits([{ name: '', amount: '' }]);
@@ -597,9 +586,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                         setShowNotifications(false);
                         setViewedNotifications(true);
                         setShowSubmissions(false);
-                        setSelectedPumpId(String(n.pump_id));
                         setShift(n.shift_type);
-                        setReading({ opening: n.opening_reading, closing: n.closing_reading });
                         setExpandedDates((prev) => ({ ...prev, [n.shift_date]: true }));
                       }}
                     >
@@ -689,7 +676,6 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                 className="bg-white/80 backdrop-blur-md hover:bg-white text-gray-900 rounded-xl px-4 py-2 font-semibold shadow-md hover:shadow-lg border-gray-200"
                 onClick={() => {
                   setShowReadings(false);
-                  setSelectedPumpId("");
                 }}
               >
                 🏠 Home
@@ -1206,7 +1192,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                     )}
                     
                     <Button 
-                      className="mt-6 w-full bg-gray-900 hover:bg-black hover:scale-[1.01] text-white rounded-2xl py-4 text-lg font-bold shadow-lg border border-gray-800 transition-all duration-200 active:scale-[0.99]" 
+                      className="mt-6 w-full bg-black hover:bg-gray-800 hover:scale-[1.01] text-white rounded-2xl py-4 text-lg font-bold shadow-lg border-2 border-black transition-all duration-200 active:scale-[0.99]" 
                       onClick={() => submitShift.mutate()} 
                       disabled={submitShift.isPending}
                     >
@@ -1284,9 +1270,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                                         className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 px-4 py-1 rounded-xl text-sm font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]"
                                         onClick={async () => {
                                           setShowSubmissions(false);
-                                          setSelectedPumpId(String(s.pump_id));
                                           setShift(s.shift_type);
-                                          setReading({ opening: s.opening_reading, closing: s.closing_reading });
                                           await supabase.from('shifts').update({ is_approved: false, fix_reason: null }).eq('id', s.id);
                                           if (!user) return;
                                           const { data, error } = await supabase
