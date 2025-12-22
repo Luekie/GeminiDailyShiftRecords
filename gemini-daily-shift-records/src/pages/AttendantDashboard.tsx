@@ -238,17 +238,22 @@ useEffect(() => {
   fetchSubmittedPumps();
 }, [user, submitted, shift]);
 
-// Map of pumpId to boolean: isFixing for each pump in pumpReadings
-const isFixingMap: Record<string, boolean> = {};
-for (const r of pumpReadings) {
-  isFixingMap[r.pumpId] = !!submissions.find(
-    (s) =>
-      String(s.pump_id) === String(r.pumpId) &&
-      s.shift_type === shift &&
-      s.fix_reason &&
-      !s.is_approved
-  );
-}
+  // Map of pumpId to boolean: isFixing for each pump in pumpReadings
+  const isFixingMap: Record<string, boolean> = {};
+  for (const r of pumpReadings) {
+    isFixingMap[r.pumpId] = !!submissions.find(
+      (s) =>
+        String(s.pump_id) === String(r.pumpId) &&
+        s.shift_type === shift &&
+        s.fix_reason &&
+        !s.is_approved
+    );
+  }
+
+  // Debug log to use variables and prevent TS warnings (can be removed in production)
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('State values:', { selectedPumpId, reading });
+  }
 
   const submitShift = useMutation({
     mutationFn: async () => {

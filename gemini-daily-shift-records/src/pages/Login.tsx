@@ -305,7 +305,7 @@ export default function LoginPage() {
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
               className={cn(
-                "absolute right-3 top-1/2 -translate-y-1/2 hover:scale-110 focus:outline-none transition-all",
+                "absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none transition-colors duration-200 ease-in-out",
                 isDarkMode ? "text-gray-300 hover:text-white" : "text-gray-600 hover:text-gray-800"
               )}
               aria-label={showPassword ? "Hide password" : "Show password"}
@@ -323,10 +323,10 @@ export default function LoginPage() {
           <button
             type="submit"
             className={cn(
-              "w-full py-3 rounded-xl font-semibold text-base transition-all duration-200 shadow-lg",
+              "w-full py-3 rounded-xl font-semibold text-base shadow-lg transition-all duration-200 ease-in-out transform hover:translate-y-[-1px]",
               isDarkMode
-                ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 hover:scale-105"
-                : "bg-blue-500/80 hover:bg-blue-600/90 text-white border border-blue-400 hover:scale-105"
+                ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30"
+                : "bg-blue-500/80 hover:bg-blue-600/90 text-white border border-blue-400"
             )}
           >
             Login
@@ -336,7 +336,7 @@ export default function LoginPage() {
             <button
               type="button"
               className={cn(
-                "font-semibold text-sm hover:scale-105 transition-all",
+                "font-semibold text-sm transition-colors duration-200 ease-in-out",
                 isDarkMode ? "text-gray-300 hover:text-white" : "text-gray-700 hover:text-gray-900"
               )}
               onClick={() => setShowChangePassword(true)}
