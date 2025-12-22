@@ -11,7 +11,9 @@ import { useLocation } from "wouter";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell, RadialBarChart, RadialBar } from 'recharts';
 import { fetchShiftsForDate } from "@/lib/useFetchShiftsForDate";
 import * as XLSX from 'xlsx';
-import { Download, User, Fuel, CreditCard, TrendingUp, TrendingDown, BarChart2, FileText, ChevronDown } from "lucide-react";
+import { Download, User, Fuel, CreditCard, TrendingUp, TrendingDown, BarChart2, FileText, ChevronDown, Moon, Sun } from "lucide-react";
+import { useTheme } from '../contexts/ThemeContext';
+import { GlobalBackground } from '../components/GlobalBackground';
 
 
 const fetchSummaries = async (shift: string) => {
@@ -70,6 +72,7 @@ const fetchSummaries = async (shift: string) => {
 export default function ManagerDashboard() {
   const user = useAtomValue(userAtom);
   const [, setLocation] = useLocation();
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const [shift, setShift] = useState("all");
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -322,37 +325,55 @@ const summaryTotals = filteredRecords.reduce((acc, rec) => {
 
   return (
     <>
-      {/* Fixed background image */}
-      <div
-        className="fixed inset-0 w-full h-full z-0"
-        style={{
-          backgroundImage: 'url("/puma.jpg")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-        }}
-        aria-hidden="true"
-      />
+      <GlobalBackground />
       {/* Foreground content */}
       <div className="relative min-h-screen w-full p-2 sm:p-4 space-y-4 z-10" style={{
         fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
       }}>
         {/* Header with glassmorphism */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0 bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20">
-          <h2 className="text-2xl font-bold text-gray-900">
+        <div className={cn(
+          "flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0 rounded-2xl p-4 shadow-lg border backdrop-blur-xl",
+          isDarkMode 
+            ? "bg-white/5 border-white/10 text-white" 
+            : "bg-white/20 border-white/30 text-gray-900"
+        )}>
+          <h2 className="text-2xl font-bold">
             Welcome, {user?.username || "Administrator"}!
           </h2>
           <div className="flex flex-col sm:flex-row gap-2 items-center">
             <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleDarkMode}
+              className={cn(
+                "rounded-xl p-2 transition-all duration-200",
+                isDarkMode 
+                  ? "hover:bg-white/10 text-white" 
+                  : "hover:bg-white/20 text-gray-700"
+              )}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
+            
+            <Button
               onClick={() => setShowAllModal(true)}
-              className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl px-4 py-2 font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]"
+              className={cn(
+                "rounded-xl px-4 py-2 font-semibold shadow-sm border transition-all duration-200",
+                isDarkMode
+                  ? "bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  : "bg-white/70 hover:bg-white/90 text-gray-900 border-gray-300"
+              )}
             >
               📋 All Records
             </Button>
             <Button
               onClick={handleLogout}
-              className="bg-red-100/70 hover:bg-red-200/90 hover:scale-[1.02] text-red-800 rounded-xl px-4 py-2 font-semibold shadow-sm border border-red-300 transition-all duration-200 active:scale-[0.98]"
+              className={cn(
+                "rounded-xl px-4 py-2 font-semibold shadow-sm border transition-all duration-200",
+                isDarkMode
+                  ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border-red-500/30"
+                  : "bg-red-100/70 hover:bg-red-200/90 text-red-800 border-red-300"
+              )}
             >
               🚪 Log Out
             </Button>

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, X } from "lucide-react";
+import { Check, X, Moon, Sun } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAtomValue } from "jotai";
@@ -9,6 +9,8 @@ import { userAtom } from "../store/auth";
 import { useLocation } from "wouter";
 import { fetchShiftsForDate } from "@/lib/useFetchShiftsForDate";
 import { cn } from "@/lib/utils";
+import { useTheme } from '../contexts/ThemeContext';
+import { GlobalBackground } from '../components/GlobalBackground';
 
 
 const authoriseSubmission = async (id: string) => {
@@ -35,6 +37,7 @@ export default function SupervisorApproval() {
   const user = useAtomValue(userAtom);
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { isDarkMode, toggleDarkMode } = useTheme();
 
   type Submission = {
     id: string;
@@ -227,28 +230,43 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
 
   return (
     <>
-      {/* Fixed background image */}
-      <div
-        className="fixed inset-0 w-full h-full z-0"
-        style={{
-          backgroundImage: 'url("/puma.jpg")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-        }}
-        aria-hidden="true"
-      />
+      <GlobalBackground />
       {/* Foreground content */}
       <div className="relative min-h-screen w-full p-2 sm:p-4 space-y-4 z-10" style={{
         fontFamily: "San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
       }}>
         {/* Header with glassmorphism */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0 bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20">
-          <h2 className="text-2xl font-bold text-gray-900">👋 Welcome, Supervisor {user?.username || ""}!</h2>
-          <Button onClick={handleLogout} className="bg-red-100/70 hover:bg-red-200/90 hover:scale-[1.02] text-red-800 rounded-xl px-4 py-2 font-semibold shadow-sm border border-red-300 transition-all duration-200 active:scale-[0.98]">
-            🚪 Log Out
-          </Button>
+        <div className={cn(
+          "flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0 rounded-2xl p-4 shadow-lg border backdrop-blur-xl",
+          isDarkMode 
+            ? "bg-white/5 border-white/10 text-white" 
+            : "bg-white/20 border-white/30 text-gray-900"
+        )}>
+          <h2 className="text-2xl font-bold">👋 Welcome, Supervisor {user?.username || ""}!</h2>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleDarkMode}
+              className={cn(
+                "rounded-xl p-2 transition-all duration-200",
+                isDarkMode 
+                  ? "hover:bg-white/10 text-white" 
+                  : "hover:bg-white/20 text-gray-700"
+              )}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
+            
+            <Button onClick={handleLogout} className={cn(
+              "rounded-xl px-4 py-2 font-semibold shadow-sm border transition-all duration-200",
+              isDarkMode
+                ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border-red-500/30"
+                : "bg-red-100/70 hover:bg-red-200/90 text-red-800 border-red-300"
+            )}>
+              🚪 Log Out
+            </Button>
+          </div>
         </div>
         {/* Filter Bar with iOS styling */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 mb-6">

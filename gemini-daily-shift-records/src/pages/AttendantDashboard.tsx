@@ -9,6 +9,9 @@ import { userAtom } from '../store/auth';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { useLocation } from 'wouter';
 import { cn } from '@/lib/utils';
+import { useTheme } from '../contexts/ThemeContext';
+import { GlobalBackground } from '../components/GlobalBackground';
+import { Moon, Sun } from 'lucide-react';
   
 
 interface PaymentEntry {
@@ -24,6 +27,7 @@ interface Reading {
 
 
 const AttendantDashboard = () => {
+  const { isDarkMode, toggleDarkMode } = useTheme();
   // --- Multi-pump state and handlers ---
   type PumpReading = { pumpId: string; opening: number; closing: number };
   const [pumpReadings, setPumpReadings] = useState<PumpReading[]>([]);
@@ -433,7 +437,7 @@ useEffect(() => {
           aria-hidden="true"
         />
         <div className="relative min-h-screen flex items-center justify-center z-10">
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-2xl">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-gray-200">
             <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
@@ -490,55 +494,71 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
 
   return (
     <>
-      {/* Fixed background image */}
-      <div
-        className="fixed inset-0 w-full h-full z-0"
-        style={{
-          backgroundImage: 'url("/puma.jpg")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-        }}
-        aria-hidden="true"
-      />
+      <GlobalBackground />
       {/* Foreground content */}
       <div className="relative min-h-screen w-full p-2 sm:p-4 space-y-4 z-10">
-        {/* Header with glassmorphism */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 mb-4">
-          <div className="flex flex-col sm:flex-row w-full justify-between gap-2 items-center">
-            <h2 className="text-xl font-bold text-gray-900">
-              👋 Welcome, {user?.username || 'Guest'}!
-            </h2>
+        {/* Header with clean styling */}
+        <div className={cn(
+          "flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0 rounded-2xl p-4 shadow-lg border backdrop-blur-xl",
+          isDarkMode 
+            ? "bg-white/5 border-white/10 text-white" 
+            : "bg-white/20 border-white/30 text-gray-900"
+        )}>
+          <h2 className="text-xl font-bold">
+            👋 Welcome, {user?.username || 'Guest'}!
+          </h2>
 
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <button
-                  className="relative p-2 bg-orange-100 hover:bg-orange-200 rounded-xl transition-all shadow-md"
-                  onClick={() => {
-                    setShowNotifications(true);
-                    setViewedNotifications(true);
-                  }}
-                  title="Fix Requests"
-                >
-                  <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
-                    <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-5-6.32V4a1 1 0 1 0-2 0v.68C7.63 5.36 6 7.92 6 11v5l-1.29 1.29A1 1 0 0 0 6 19h12a1 1 0 0 0 .71-1.71L18 16z" fill="#f59e42"/>
-                  </svg>
-                  {fixNotifications.length > 0 && !viewedNotifications && (
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full text-xs px-2 py-0.5 font-bold shadow-md">
-                      {fixNotifications.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-              
-              <Button
-                onClick={handleLogout}
-                className="bg-red-100/80 hover:bg-red-200/90 hover:scale-[1.02] text-red-800 rounded-xl px-4 py-2 font-semibold shadow-sm border border-red-300 transition-all duration-200 active:scale-[0.98]"
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleDarkMode}
+              className={cn(
+                "rounded-xl p-2 transition-all duration-200",
+                isDarkMode 
+                  ? "hover:bg-white/10 text-white" 
+                  : "hover:bg-white/20 text-gray-700"
+              )}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
+
+            <div className="relative">
+              <button
+                className={cn(
+                  "relative p-2 rounded-xl transition-all shadow-md",
+                  isDarkMode 
+                    ? "bg-orange-500/20 hover:bg-orange-500/30 text-orange-400" 
+                    : "bg-orange-100 hover:bg-orange-200 text-orange-600"
+                )}
+                onClick={() => {
+                  setShowNotifications(true);
+                  setViewedNotifications(true);
+                }}
+                title="Fix Requests"
               >
-                🚪 Log Out
-              </Button>
+                <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
+                  <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-5-6.32V4a1 1 0 1 0-2 0v.68C7.63 5.36 6 7.92 6 11v5l-1.29 1.29A1 1 0 0 0 6 19h12a1 1 0 0 0 .71-1.71L18 16z" fill="currentColor"/>
+                </svg>
+                {fixNotifications.length > 0 && !viewedNotifications && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full text-xs px-2 py-0.5 font-bold shadow-md">
+                    {fixNotifications.length}
+                  </span>
+                )}
+              </button>
             </div>
+            
+            <Button
+              onClick={handleLogout}
+              className={cn(
+                "rounded-xl px-4 py-2 font-semibold transition-all duration-200",
+                isDarkMode
+                  ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
+                  : "bg-red-100/80 hover:bg-red-200/90 text-red-800 border border-red-300"
+              )}
+            >
+              🚪 Log Out
+            </Button>
           </div>
         </div>
 
@@ -589,13 +609,26 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
           </div>
         )}    
 
-        {/* Action Bar with modern styling */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 mb-4">
+        {/* Action Bar with clean styling */}
+        <div className={cn(
+          "rounded-2xl p-4 shadow-lg border backdrop-blur-xl mb-4",
+          isDarkMode 
+            ? "bg-white/5 border-white/10" 
+            : "bg-white/20 border-white/30"
+        )}>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <label className="font-semibold text-gray-700 text-sm">🔄 Shift:</label>
+              <label className={cn(
+                "font-semibold text-sm",
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              )}>🔄 Shift:</label>
               <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
-                <SelectTrigger className="w-36 bg-white/70 rounded-xl border-gray-200">
+                <SelectTrigger className={cn(
+                  "w-36 rounded-xl border backdrop-blur-sm",
+                  isDarkMode 
+                    ? "bg-white/10 border-white/20 text-white" 
+                    : "bg-white/30 border-white/40 text-gray-900"
+                )}>
                   {shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift'}
                 </SelectTrigger>
                 <SelectContent>
@@ -608,7 +641,12 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
             <div className="flex gap-2 ml-auto">
               <Button
                 variant="outline"
-                className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl px-4 py-2 font-semibold shadow-sm transition-all duration-200 border border-gray-300 active:scale-[0.98]"
+                className={cn(
+                  "rounded-xl px-4 py-2 font-semibold shadow-sm transition-all duration-200 border",
+                  isDarkMode
+                    ? "bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    : "bg-white/70 hover:bg-white/90 text-gray-900 border-gray-300"
+                )}
                 onClick={() => setShowReadings(true)}
               >
                 ⛽ Enter Readings
@@ -617,10 +655,14 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
               <Button
                 variant="outline"
                 className={cn(
-                  "rounded-xl px-4 py-2 font-semibold shadow-sm transition-all duration-200 border active:scale-[0.98]",
+                  "rounded-xl px-4 py-2 font-semibold shadow-sm transition-all duration-200 border",
                   showSubmissions 
-                    ? "bg-gray-200/80 hover:bg-gray-300/90 hover:scale-[1.02] text-gray-900 border-gray-400" 
-                    : "bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 border-gray-300"
+                    ? isDarkMode
+                      ? "bg-white/20 hover:bg-white/30 text-white border-white/30"
+                      : "bg-gray-200/80 hover:bg-gray-300/90 text-gray-900 border-gray-400"
+                    : isDarkMode
+                      ? "bg-white/10 hover:bg-white/20 text-white border-white/20"
+                      : "bg-white/70 hover:bg-white/90 text-gray-900 border-gray-300"
                 )}
                 onClick={() => {
                   setShowSubmissions(!showSubmissions);
@@ -851,12 +893,11 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
               </CardContent>
             </Card>
             <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-purple-200">
-              <CardContent className="space-y-4 p-5">
+              <CardContent className="space-y-3 p-5">
                 <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
-                  <span className="text-2xl">💳</span>
-                  Card Payments
+                  <span className="text-2xl">⛽</span>
+                  My Fuel Card Payments
                 </h3>
-                <h4 className="font-semibold text-sm text-gray-700 mt-3">⛽ My Fuel Card Payments</h4>
                 {myFuelCards.map((c, idx) => (
                   <div key={idx} className="flex gap-2 items-center">
                     <Input
@@ -882,86 +923,104 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                 <Button onClick={() => addEntry(myFuelCards, setMyFuelCards)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">
                   + Add Fuel Card
                 </Button>
+              </CardContent>
+            </Card>
 
-              <h4 className="font-semibold text-sm mt-4">FDH Bank Card Payments</h4>
-              {fdhCards.map((c, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <Input
-                    className="text-black bg-white/50"
-                    placeholder="Transaction number"
-                    value={c.name}
-                    onChange={e => updateList(fdhCards, setFdhCards, idx, 'name', e.target.value)}
-                  />
-                  <Input
-                    className="text-black bg-white/50"
-                    type="number"
-                    placeholder="Amount"
-                    value={c.amount}
-                    onChange={e => handleNumericChange(e, (val) =>
-                      updateList(fdhCards, setFdhCards, idx, 'amount', val)
-                    )}
-                  />
-                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
-                    {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
-                  </span>
-                </div>
-              ))}
-              <Button onClick={() => addEntry(fdhCards, setFdhCards)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add FDH Card Payment</Button>
+            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-indigo-200">
+              <CardContent className="space-y-3 p-5">
+                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">🏧</span>
+                  FDH Bank Card Payments
+                </h3>
+                {fdhCards.map((c, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      placeholder="Transaction number"
+                      value={c.name}
+                      onChange={e => updateList(fdhCards, setFdhCards, idx, 'name', e.target.value)}
+                    />
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      type="number"
+                      placeholder="Amount"
+                      value={c.amount}
+                      onChange={e => handleNumericChange(e, (val) =>
+                        updateList(fdhCards, setFdhCards, idx, 'amount', val)
+                      )}
+                    />
+                    <span className="ml-2 text-indigo-700 text-sm min-w-[70px] text-right font-bold">
+                      {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
+                    </span>
+                  </div>
+                ))}
+                <Button onClick={() => addEntry(fdhCards, setFdhCards)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add FDH Card Payment</Button>
+              </CardContent>
+            </Card>
 
-              <h4 className="font-semibold text-sm mt-4">National Bank Card Payments</h4>
-              {nationalBankCards.map((c, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <Input
-                    className="text-black bg-white/50"
-                    placeholder="Invoice number"
-                    value={c.name}
-                    onChange={e => updateList(nationalBankCards, setNationalBankCards, idx, 'name', e.target.value)}
-                  />
-                  <Input
-                    className="text-black bg-white/50"
-                    type="number"
-                    placeholder="Amount"
-                    value={c.amount}
-                    onChange={e => handleNumericChange(e, (val) =>
-                      updateList(nationalBankCards, setNationalBankCards, idx, 'amount', val)
-                    )}
-                  />
-                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
-                    {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
-                  </span>
-                </div>
-              ))}
-              <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add National Bank Card Payment</Button>
+            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-pink-200">
+              <CardContent className="space-y-3 p-5">
+                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">🏦</span>
+                  National Bank Card Payments
+                </h3>
+                {nationalBankCards.map((c, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      placeholder="Invoice number"
+                      value={c.name}
+                      onChange={e => updateList(nationalBankCards, setNationalBankCards, idx, 'name', e.target.value)}
+                    />
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      type="number"
+                      placeholder="Amount"
+                      value={c.amount}
+                      onChange={e => handleNumericChange(e, (val) =>
+                        updateList(nationalBankCards, setNationalBankCards, idx, 'amount', val)
+                      )}
+                    />
+                    <span className="ml-2 text-pink-700 text-sm min-w-[70px] text-right font-bold">
+                      {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
+                    </span>
+                  </div>
+                ))}
+                <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add National Bank Card Payment</Button>
+              </CardContent>
+            </Card>
 
-             <h4 className="font-semibold text-sm mt-4">MO - Payments </h4>
-              {moPayments.map((m, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <Input
-                    className="text-black bg-white/50"
-                    placeholder="Invoice number"
-                    value={m.name}
-                    onChange={e => updateList(moPayments, setMoPayments, idx, 'name', e.target.value)}
-                  />
-                  <Input
-                    className="text-black bg-white/50"
-                    type="number"
-                    placeholder="Amount"
-                    value={m.amount}
-                    onChange={e => handleNumericChange(e, (val) =>
-                      updateList(moPayments,setMoPayments, idx, 'amount', val)
-                    )}
-                  />
-                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
-                    {m.amount && !isNaN(Number(m.amount)) ? Number(m.amount).toLocaleString() : ''}
-                  </span>
-                </div>
-              ))}
-              <Button onClick={() => addEntry(moPayments, setMoPayments)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add Mo Payment</Button>
-
- 
-
-            </CardContent>
-          </Card>
+            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-red-200">
+              <CardContent className="space-y-3 p-5">
+                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">📱</span>
+                  MO - Payments
+                </h3>
+                {moPayments.map((m, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      placeholder="Invoice number"
+                      value={m.name}
+                      onChange={e => updateList(moPayments, setMoPayments, idx, 'name', e.target.value)}
+                    />
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      type="number"
+                      placeholder="Amount"
+                      value={m.amount}
+                      onChange={e => handleNumericChange(e, (val) =>
+                        updateList(moPayments,setMoPayments, idx, 'amount', val)
+                      )}
+                    />
+                    <span className="ml-2 text-red-700 text-sm min-w-[70px] text-right font-bold">
+                      {m.amount && !isNaN(Number(m.amount)) ? Number(m.amount).toLocaleString() : ''}
+                    </span>
+                  </div>
+                ))}
+                <Button onClick={() => addEntry(moPayments, setMoPayments)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add Mo Payment</Button>
+              </CardContent>
+            </Card>
 
             <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-gray-200">
               <CardContent className="space-y-4 p-5">
@@ -1255,19 +1314,10 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
             </div>
           </div>
         )}
-
-
-
-      
-      
-      
-
-
       </div>
     </>
   );
 };
 
 export default AttendantDashboard;
-
-
+// Fixed JSX structure and button styling
