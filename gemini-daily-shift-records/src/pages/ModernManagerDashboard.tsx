@@ -1,11 +1,9 @@
 // Fixed TypeScript imports - removed unused imports
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '../store/auth';
 import { useLocation } from 'wouter';
@@ -29,47 +27,12 @@ import {
 } from 'lucide-react';
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 
-const fetchSummaries = async (shift: string) => {
-  const { data, error } = await supabase
-    .from("shifts")
-    .select("*, attendant:attendant_id(username)")
-    .eq("shift_type", shift)
-    .order("shift_date", { ascending: false });
-  if (error) throw error;
-  
-  const grouped: Record<string, any> = {};
-  for (const row of data) {
-    const key = `${row.attendant_id}-${row.shift_date}`;
-    if (!grouped[key]) {
-      grouped[key] = {
-        attendantName: row.attendant?.username || row.attendant_id,
-        shift: row.shift_type,
-        date: row.shift_date,
-        totalRevenue: 0,
-        totalVolume: 0,
-        transactions: 0,
-      };
-    }
-    grouped[key].totalRevenue += (row.cash_received || 0) + (row.prepayment_received || 0) + (row.credit_received || 0);
-    grouped[key].totalVolume += (row.closing_reading - row.opening_reading) || 0;
-    grouped[key].transactions += 1;
-  }
-  return Object.values(grouped);
-};
-
 export default function ModernManagerDashboard() {
   const user = useAtomValue(userAtom);
   const [, setLocation] = useLocation();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [selectedShift, setSelectedShift] = useState('all');
-
-  const { data: summaries = [] } = useQuery({
-    queryKey: ["manager-modern", selectedShift],
-    queryFn: () => selectedShift === "all"
-      ? Promise.all([fetchSummaries("day"), fetchSummaries("night")]).then(arr => arr.flat())
-      : fetchSummaries(selectedShift),
-  });
 
   // Mock data for enhanced dashboard
   const kpiData = {
