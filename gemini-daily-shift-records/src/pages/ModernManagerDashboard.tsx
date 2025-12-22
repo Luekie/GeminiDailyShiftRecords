@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '../store/auth';
 import { useLocation } from 'wouter';
