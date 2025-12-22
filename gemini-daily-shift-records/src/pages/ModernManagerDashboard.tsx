@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,18 +12,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import { GlobalBackground } from '../components/GlobalBackground';
 import { 
   TrendingUp, 
-  TrendingDown, 
   BarChart3, 
-  Users, 
   Fuel, 
   CreditCard, 
-  Download,
-  Settings,
   Moon,
   Sun,
   Bell,
-  Search,
-  Filter,
   Calendar,
   DollarSign,
   Activity,
@@ -69,7 +63,7 @@ export default function ModernManagerDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [selectedShift, setSelectedShift] = useState('all');
 
-  const { data: summaries = [], isLoading } = useQuery({
+  const { data: summaries = [] } = useQuery({
     queryKey: ["manager-modern", selectedShift],
     queryFn: () => selectedShift === "all"
       ? Promise.all([fetchSummaries("day"), fetchSummaries("night")]).then(arr => arr.flat())
