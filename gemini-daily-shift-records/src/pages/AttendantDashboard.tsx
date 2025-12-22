@@ -74,7 +74,7 @@ const AttendantDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showReadings, setShowReadings] = useState(false);
   const [shift, setShift] = useState<'day' | 'night'>('day');
-
+  
   const [cash, setCash] = useState('');
   const [prepayments, setPrepayments] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
   const [credits, setCredits] = useState<PaymentEntry[]>([{ name: '', amount: '' }]);
