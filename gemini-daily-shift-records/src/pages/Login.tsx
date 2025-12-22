@@ -72,15 +72,17 @@ export default function LoginPage() {
     >
 
 
-      {/* Change Password Modal */}
+      {/* Change Password Modal with modern styling */}
       {(showChangePassword || forceChangePassword) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-6 relative" onClick={e => e.stopPropagation()}>
-            {/* Only allow closing if not forced */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-md p-6 relative border border-white/30" onClick={e => e.stopPropagation()}>
             {!forceChangePassword && (
-              <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold" onClick={() => setShowChangePassword(false)} aria-label="Close">×</button>
+              <button className="absolute top-3 right-3 text-gray-400 hover:text-red-600 text-3xl font-bold transition-colors" onClick={() => setShowChangePassword(false)} aria-label="Close">×</button>
             )}
-            <h3 className="font-bold text-lg mb-4 text-center">Change Password</h3>
+            <h3 className="font-bold text-2xl mb-6 text-center text-gray-900 flex items-center justify-center gap-2">
+              <span className="text-3xl">🔐</span>
+              Change Password
+            </h3>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -257,6 +259,8 @@ export default function LoginPage() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           style={{ fontFamily: 'inherit' }}
+          autoComplete="username"
+          name="username"
         />
         <div className="relative w-full mb-4">
           <input
@@ -266,6 +270,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            name="password"
           />
           <button
             type="button"

@@ -8,6 +8,7 @@ import { useAtomValue } from "jotai";
 import { userAtom } from "../store/auth";
 import { useLocation } from "wouter";
 import { fetchShiftsForDate } from "@/lib/useFetchShiftsForDate";
+import { cn } from "@/lib/utils";
 
 
 const authoriseSubmission = async (id: string) => {
@@ -153,8 +154,8 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
     });
   });
 
-  // Helper to calculate expected and collected
-  function getBalance(submission: { closing_reading: any; opening_reading: any; fuel_price: any; cash_received: any; prepayment_received: any; credit_received: any; fuel_card_received: any; fdh_card_received: any; national_bank_card_received: any; mo_payment_received: any; own_use_total: any; }) {
+  // Helper to calculate expected and collected - includes all payment types
+  function getBalance(submission: any) {
     const expected = (Number(submission.closing_reading) - Number(submission.opening_reading)) * Number(submission.fuel_price || 0);
     const collected = Number(submission.cash_received || 0)
       + Number(submission.prepayment_received || 0)
@@ -177,261 +178,467 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
   }
 
   if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <svg className="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-      </svg>
-    </div>
+    <>
+      <div
+        className="fixed inset-0 w-full h-full z-0"
+        style={{
+          backgroundImage: 'url("/puma.jpg")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+        aria-hidden="true"
+      />
+      <div className="relative min-h-screen flex items-center justify-center z-10">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-2xl">
+          <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <p className="text-gray-900 font-semibold">Loading submissions...</p>
+        </div>
+      </div>
+    </>
   );
-  if (error) return <p className="text-red-600">Error loading submissions</p>;
+  
+  if (error) return (
+    <>
+      <div
+        className="fixed inset-0 w-full h-full z-0"
+        style={{
+          backgroundImage: 'url("/puma.jpg")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+        aria-hidden="true"
+      />
+      <div className="relative min-h-screen flex items-center justify-center z-10 p-4">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-2xl text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <p className="text-red-600 font-bold text-xl">Error loading submissions</p>
+          <p className="text-gray-600 mt-2">Please try refreshing the page</p>
+        </div>
+      </div>
+    </>
+  );
 
   return (
-    <div
-  className="min-h-screen p-2 sm:p-4"
-      style={{
-        backgroundImage: 'url("/puma.jpg")',
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: 'fixed',
+    <>
+      {/* Fixed background image */}
+      <div
+        className="fixed inset-0 w-full h-full z-0"
+        style={{
+          backgroundImage: 'url("/puma.jpg")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+        aria-hidden="true"
+      />
+      {/* Foreground content */}
+      <div className="relative min-h-screen w-full p-2 sm:p-4 space-y-4 z-10" style={{
         fontFamily: "San Francisco, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
-        color: "#111",
-      }}
-    >
-      {/* Header */}
-  <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0" style={{ borderBottom: "1px solid #d1d1d6", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
-        <h2 className="text-2xl font-bold">Welcome, Supervisor {user?.username || ""}!</h2>
-        <Button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white" style={{ borderRadius: 8, fontWeight: 600 }}>
-          Log Out
-        </Button>
-      </div>
-  <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 mb-6">
-        <label className="font-semibold">Select Date to Review:</label>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <label className="font-semibold ml-4">Shift:</label>
-        <select value={shiftFilter} onChange={e => setShiftFilter(e.target.value as 'all' | 'day' | 'night')} className="border rounded px-2 py-1">
-          <option value="all">All</option>
-          <option value="day">Day</option>
-          <option value="night">Night</option>
-        </select>
-      </div>
-      {/* Section buttons */}
-  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-6">
-  <Button variant={section === 'pending' ? 'default' : 'outline'} onClick={() => setSection('pending')}>Pending Authorisation</Button>
-  <Button variant={section === 'authorised' ? 'default' : 'outline'} onClick={() => { setSection('authorised'); setAuthorisedAttendant(null); setAuthorisedPump(null); }}>Authorised Shifts (History)</Button>
-  <Button variant={section === 'fix' ? 'default' : 'outline'} onClick={() => setSection('fix')}>Requested for Fix</Button>
-      </div>
-      {notification && <div className="bg-green-100 text-green-800 p-2 rounded mb-2 text-center">{notification}</div>}
-      {/* Section content */}
-      {section === 'authorised' && (
-        <div>
-          {Object.keys(authorisedByAttendantAndPump).length === 0 ? (
-      <div className="ml-2 sm:ml-6 mt-2 text-white font-semibold ">None</div>
-          ) : !authorisedAttendant ? (
-            <ol className="list-decimal ml-2 sm:ml-6 mt-2">
-              {Object.keys(authorisedByAttendantAndPump).map((attendant) => (
-                <li key={attendant} className="mb-2">
-                  <Button variant="outline" className="bg-white/60 text-black" onClick={() => setAuthorisedAttendant(attendant)}>{attendant}</Button>
-                </li>
-              ))}
-            </ol>
-          ) : !authorisedPump ? (
-            <div className="ml-2 sm:ml-6 mt-2">
-              <Button variant="outline" className="bg-white/50 text-black mb-2" onClick={() => setAuthorisedAttendant(null)}>Back to Attendants</Button>
-              <div className="font-semibold mb-2">Pumps for {authorisedAttendant}:</div>
-              {Object.keys(authorisedByAttendantAndPump[authorisedAttendant]).map(pump => (
-                <Button key={pump} variant="outline" className="bg-white/60 m-1" onClick={() => setAuthorisedPump(pump)}>{pump}</Button>
-              ))}
+      }}>
+        {/* Header with glassmorphism */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2 sm:gap-0 bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20">
+          <h2 className="text-2xl font-bold text-gray-900">👋 Welcome, Supervisor {user?.username || ""}!</h2>
+          <Button onClick={handleLogout} className="bg-red-100/70 hover:bg-red-200/90 hover:scale-[1.02] text-red-800 rounded-xl px-4 py-2 font-semibold shadow-sm border border-red-300 transition-all duration-200 active:scale-[0.98]">
+            🚪 Log Out
+          </Button>
+        </div>
+        {/* Filter Bar with iOS styling */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="font-semibold text-gray-700 text-sm">📅 Date:</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="border border-gray-200 rounded-xl px-3 py-2 bg-white/70 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
             </div>
-          ) : (
-            <div className="ml-2 sm:ml-6 mt-2">
-              <Button className="mb-2" onClick={() => setAuthorisedPump(null)}>Back to Pumps</Button>
-              <div className="font-semibold mb-2">History for {authorisedAttendant} - {authorisedPump}:</div>
-              {authorisedByAttendantAndPump[authorisedAttendant][authorisedPump].map((submission: any, idx: number) => (
-                <div key={submission.id} className="mb-2">
-                  <CardContent className="space-y-2 p-4 shadow-md" style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10 }}>
-                    <p className="font-bold">#{idx + 1} Date: {submission.shift_date} | Shift: {submission.shift_type}</p>
-                    <p>Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
-                    <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
-                    <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
-                    <p>Fuel Card: <span className="font-bold">{submission.fuel_card_received || 0} MWK</span></p>
-                    <p>FDH Card: <span className="font-bold">{submission.fdh_card_received || 0} MWK</span></p>
-                    <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
-                    <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
-                    <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
-                    <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
-                    <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
-                    <p>
-                      {getBalance(submission).label !== 'Balanced' ? (
-                        <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                          {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
-                        </span>
-                      ) : (
-                        <span className="text-gray-700 font-bold">Balanced</span>
-                      )}
-                    </p>
-                    {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
-                      <div className="mt-2">
-                        <h4 className="font-semibold">Own Use Details:</h4>
-                        <ul className="list-disc ml-6">
-                          {submission.own_use.map((ou: any, idx: number) => (
-                            <li key={idx}>
-                              {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
-                              {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
-                              {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
-                              Volume: {ou.volume}L, Amount: {ou.amount} MWK
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </CardContent>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      {section === 'pending' && (
-        <div>
-          {pending.length === 0 ? <div className="ml-6 mt-2 text-white font-semibold text-xl">None</div> :
-            pending.map((submission: any) => (
-              <div key={submission.id} className="mb-2">
-                <CardContent className="space-y-2 p-4 shadow-md" style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10 }}>
-                  <p className="text-lg font-bold">Attendant: {submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}</p>
-                  <p>Pump: {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || '?'}</p>
-                  <p>Shift: {submission.shift_type}</p>
-                  <p>Date: {submission.shift_date}{submission.created_at ? `, Time: ${new Date(submission.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : ''}</p>
-                  <p>Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
-                  <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
-                  <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
-                  <p>Fuel Card: <span className="font-bold">{submission.fuel_card_received || 0} MWK</span></p>
-                  <p>FDH Card: <span className="font-bold">{submission.fdh_card_received || 0} MWK</span></p>
-                  <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
-                  <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
-                  {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
-                    <div className="mt-2">
-                      <h4 className="font-semibold">Own Use Details:</h4>
-                      <ul className="list-disc ml-6">
-                        {submission.own_use.map((ou: any, idx: number) => (
-                          <li key={idx}>
-                            {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
-                            {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
-                            {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
-                            Volume: {ou.volume}L, Amount: {ou.amount} MWK
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
-                  <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
-                  <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
-                  <p>
-                    {getBalance(submission).label !== 'Balanced' ? (
-                      <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                        {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
-                      </span>
-                    ) : (
-                      <span className="text-gray-700 font-bold">Balanced</span>
-                    )}
-                  </p>
-                  <div className="flex items-center gap-2 mt-4">
-                    <Button onClick={() => authorise.mutate(submission.id)} className="bg-green-600 hover:bg-green-700 text-white">
-                      <Check className="w-4 h-4" /> Authorise
-                    </Button>
-                    <Button onClick={() => setModal({ open: true, submission })} className="bg-red-600 hover:bg-red-700 text-white">
-                      <X className="w-4 h-4" /> Request Fix
-                    </Button>
-                  </div>
-                </CardContent>
-              </div>
-            ))}
-        </div>
-      )}
-      {section === 'fix' && (
-        <div>
-          {requestedFix.length === 0 ? <div className="ml-6 mt-2 text-white font-semibold text-xl">None</div> :
-            requestedFix.map((submission: any) => (
-              <Card key={submission.id} className="bg-yellow-50 shadow-md mb-4" style={{ borderRadius: 12, border: "1px solid #e5e5ea" }}>
-                <CardContent className="space-y-2 p-4" style={{ background: "#fffbe6", borderRadius: 10 }}>
-                  <p className="text-lg font-bold">Attendant: {submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}</p>
-                  <p>Pump: {pumpMap[submission.pump_id] || submission.pump_id || submission.pump || '?'}</p>
-                  <p>Shift: {submission.shift_type}</p>
-                  <p>Date: {submission.shift_date}</p>
-                  <p>Reason: <span className="font-bold text-red-600">{submission.fix_reason}</span></p>
-                  <p>Cash: <span className="font-bold">{submission.cash_received} MWK</span></p>
-                  <p>Prepaid: <span className="font-bold">{submission.prepayment_received} MWK</span></p>
-                  <p>Credit: <span className="font-bold">{submission.credit_received} MWK</span></p>
-                  <p>Fuel Card: <span className="font-bold">{submission.fuel_card_received || 0} MWK</span></p>
-                  <p>FDH Card: <span className="font-bold">{submission.fdh_card_received || 0} MWK</span></p>
-                  <p>National Bank Card: <span className="font-bold">{submission.national_bank_card_received || 0} MWK</span></p>
-                  <p>MO Payment: <span className="font-bold">{submission.mo_payment_received || 0} MWK</span></p>
-                  <p>Own Use Total: <span className="font-bold">{submission.own_use_total || 0} MWK</span></p>
-                  <p>Expected: <span className="font-bold">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
-                  <p>Total Collected: <span className="font-bold">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
-                  <p>
-                    {getBalance(submission).label !== 'Balanced' ? (
-                      <span className={getBalance(submission).label === 'Shortage' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                        {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
-                      </span>
-                    ) : (
-                      <span className="text-gray-700 font-bold">Balanced</span>
-                    )}
-                  </p>
-                  {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
-                    <div className="mt-2">
-                      <h4 className="font-semibold">Own Use Details:</h4>
-                      <ul className="list-disc ml-6">
-                        {submission.own_use.map((ou: any, idx: number) => (
-                          <li key={idx}>
-                            {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
-                            {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
-                            {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
-                            Volume: {ou.volume}L, Amount: {ou.amount} MWK
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-        </div>
-      )}
-      {/* Modal for request fix */}
-      {modal.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-            <h2 className="text-lg font-bold mb-2">Request Fix for {modal.submission?.attendant?.username || modal.submission?.attendant_id}</h2>
-            <textarea
-              className="w-full border rounded p-2 mb-4"
-              rows={3}
-              placeholder="Reason for revision"
-              value={modalReason}
-              onChange={(e) => setModalReason(e.target.value)}
-            />
-            <div className="flex gap-2 justify-end">
-              <Button onClick={() => setModal({ open: false, submission: null })} variant="outline">
-                Cancel
-              </Button>
-              <Button
-                className="bg-red-600 hover:bg-red-700 text-white"
-                onClick={() => modal.submission && request.mutate({ id: modal.submission.id, reason: modalReason })}
-                disabled={request.isPending || !modalReason.trim() || !modal.submission}
+            <div className="flex items-center gap-2">
+              <label className="font-semibold text-gray-700 text-sm">🔄 Shift:</label>
+              <select 
+                value={shiftFilter} 
+                onChange={e => setShiftFilter(e.target.value as 'all' | 'day' | 'night')} 
+                className="border border-gray-200 rounded-xl px-3 py-2 bg-white/70 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
-                Submit
-              </Button>
+                <option value="all">All Shifts</option>
+                <option value="day">☀️ Day Shift</option>
+                <option value="night">🌙 Night Shift</option>
+              </select>
             </div>
           </div>
         </div>
-      )}
-    </div>
+        
+        {/* Section buttons with modern tabs */}
+        <div className="flex flex-wrap gap-3 mb-6">
+          <Button 
+            variant={section === 'pending' ? 'default' : 'outline'} 
+            onClick={() => setSection('pending')}
+            className={cn(
+              "rounded-xl px-6 py-3 font-semibold shadow-sm transition-all duration-200 border active:scale-[0.98]",
+              section === 'pending' 
+                ? 'bg-orange-100/70 hover:bg-orange-200/90 hover:scale-[1.02] text-orange-800 border-orange-300' 
+                : 'bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-700 border-gray-300'
+            )}
+          >
+            ⏳ Pending ({pending.length})
+          </Button>
+          <Button 
+            variant={section === 'authorised' ? 'default' : 'outline'} 
+            onClick={() => { setSection('authorised'); setAuthorisedAttendant(null); setAuthorisedPump(null); }}
+            className={cn(
+              "rounded-xl px-6 py-3 font-semibold shadow-sm transition-all duration-200 border active:scale-[0.98]",
+              section === 'authorised' 
+                ? 'bg-green-100/70 hover:bg-green-200/90 hover:scale-[1.02] text-green-800 border-green-300' 
+                : 'bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-700 border-gray-300'
+            )}
+          >
+            ✅ Authorised ({authorised.length})
+          </Button>
+          <Button 
+            variant={section === 'fix' ? 'default' : 'outline'} 
+            onClick={() => setSection('fix')}
+            className={cn(
+              "rounded-xl px-6 py-3 font-semibold shadow-sm transition-all duration-200 border active:scale-[0.98]",
+              section === 'fix' 
+                ? 'bg-yellow-100/70 hover:bg-yellow-200/90 hover:scale-[1.02] text-yellow-800 border-yellow-300' 
+                : 'bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-700 border-gray-300'
+            )}
+          >
+            🔧 Fix Requests ({requestedFix.length})
+          </Button>
+        </div>
+        {notification && (
+          <div className="bg-green-100 border border-green-300 text-green-800 p-4 rounded-2xl mb-4 text-center font-semibold shadow-md animate-pulse">
+            ✅ {notification}
+          </div>
+        )}
+        {/* Section content with modern cards */}
+        {section === 'authorised' && (
+          <div>
+            {Object.keys(authorisedByAttendantAndPump).length === 0 ? (
+              <div className="text-center py-12 bg-white/70 backdrop-blur-md rounded-2xl shadow-lg">
+                <div className="text-6xl mb-4">📭</div>
+                <p className="text-gray-600 text-lg font-semibold">No authorised shifts yet</p>
+              </div>
+            ) : !authorisedAttendant ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.keys(authorisedByAttendantAndPump).map((attendant) => (
+                  <Card 
+                    key={attendant} 
+                    className="bg-white/80 backdrop-blur-md hover:bg-white/90 cursor-pointer transition-all shadow-md hover:shadow-xl rounded-2xl border border-white/20"
+                    onClick={() => setAuthorisedAttendant(attendant)}
+                  >
+                    <CardContent className="p-6 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                        {attendant.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-bold text-lg text-gray-900">{attendant}</div>
+                        <div className="text-sm text-gray-600">{Object.keys(authorisedByAttendantAndPump[attendant]).length} pump(s)</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : !authorisedPump ? (
+              <div>
+                <Button 
+                  variant="outline" 
+                  className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 mb-4 rounded-xl px-4 py-2 font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]" 
+                  onClick={() => setAuthorisedAttendant(null)}
+                >
+                  ← Back to Attendants
+                </Button>
+                <h3 className="font-bold text-xl mb-4 text-gray-900">Pumps for {authorisedAttendant}:</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {Object.keys(authorisedByAttendantAndPump[authorisedAttendant]).map(pump => (
+                    <Button 
+                      key={pump} 
+                      variant="outline" 
+                      className="bg-white/70 hover:bg-blue-50/90 hover:scale-[1.02] rounded-xl p-4 h-auto font-semibold shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98]" 
+                      onClick={() => setAuthorisedPump(pump)}
+                    >
+                      ⛽ {pump}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Button 
+                  className="mb-4 bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl px-4 py-2 font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]" 
+                  onClick={() => setAuthorisedPump(null)}
+                >
+                  ← Back to Pumps
+                </Button>
+                <h3 className="font-bold text-xl mb-4 text-gray-900">📊 History for {authorisedAttendant} - {authorisedPump}:</h3>
+                <div className="space-y-4">
+                  {authorisedByAttendantAndPump[authorisedAttendant][authorisedPump].map((submission: any, idx: number) => (
+                    <Card key={submission.id} className="bg-white/90 backdrop-blur-md shadow-lg hover:shadow-xl transition-all rounded-2xl border border-green-200">
+                      <CardContent className="space-y-3 p-5">
+                        <div className="flex items-center gap-3 mb-3">
+                          <span className="bg-green-600 text-white rounded-full px-3 py-1 text-sm font-bold">#{idx + 1}</span>
+                          <span className="font-bold text-gray-900">📅 {submission.shift_date}</span>
+                          <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-sm font-semibold">{submission.shift_type === 'day' ? '☀️ Day' : '🌙 Night'}</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                          <div className="bg-gradient-to-br from-yellow-50 to-white rounded-lg p-2">💵 Cash: <strong>{submission.cash_received?.toLocaleString()}</strong></div>
+                          <div className="bg-gradient-to-br from-green-50 to-white rounded-lg p-2">💳 Prepaid: <strong>{submission.prepayment_received?.toLocaleString()}</strong></div>
+                          <div className="bg-gradient-to-br from-blue-50 to-white rounded-lg p-2">🏦 Credit: <strong>{submission.credit_received?.toLocaleString()}</strong></div>
+                          <div className="bg-gradient-to-br from-purple-50 to-white rounded-lg p-2">⛽ Fuel Card: <strong>{(submission.fuel_card_received || 0).toLocaleString()}</strong></div>
+                        </div>
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 mt-3">
+                          <p className="text-sm text-gray-600">Expected: <span className="font-bold text-gray-900 text-lg">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
+                          <p className="text-sm text-gray-600">Collected: <span className="font-bold text-gray-900 text-lg">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
+                          <div className="mt-2">
+                            {getBalance(submission).label !== 'Balanced' ? (
+                              <div className={cn(
+                                "font-bold text-lg p-2 rounded-lg",
+                                getBalance(submission).label === 'Shortage' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                              )}>
+                                {getBalance(submission).label === 'Shortage' ? '⚠️' : '✅'} {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
+                              </div>
+                            ) : (
+                              <div className="bg-gray-100 text-gray-700 font-bold text-lg p-2 rounded-lg">✅ Balanced</div>
+                            )}
+                          </div>
+                        </div>
+                        {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
+                          <div className="bg-gray-50 rounded-xl p-3 mt-2">
+                            <h4 className="font-semibold text-gray-900 mb-2">🚗 Own Use Details:</h4>
+                            <ul className="space-y-1 text-sm">
+                              {submission.own_use.map((ou: any, idx: number) => (
+                                <li key={idx} className="flex items-start gap-2">
+                                  <span className="text-yellow-600">•</span>
+                                  <span>
+                                    {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
+                                    {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
+                                    {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
+                                    Volume: {ou.volume}L, Amount: {ou.amount} MWK
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {section === 'pending' && (
+          <div>
+            {pending.length === 0 ? (
+              <div className="text-center py-12 bg-white/70 backdrop-blur-md rounded-2xl shadow-lg">
+                <div className="text-6xl mb-4">✅</div>
+                <p className="text-gray-600 text-lg font-semibold">All caught up! No pending approvals.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {pending.map((submission: any) => (
+                  <Card key={submission.id} className="bg-white/90 backdrop-blur-md shadow-lg hover:shadow-xl transition-all rounded-2xl border border-orange-200">
+                    <CardContent className="space-y-3 p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-orange-600 rounded-full flex items-center justify-center text-white font-bold">
+                            {(submission.attendant?.username || submission.attendant_id || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold text-gray-900">{submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}</p>
+                            <p className="text-sm text-gray-600">⛽ {pumpMap[submission.pump_id] || submission.pump_id || '?'} • {submission.shift_type === 'day' ? '☀️ Day' : '🌙 Night'} • 📅 {submission.shift_date}</p>
+                            {submission.created_at && (
+                              <p className="text-xs text-gray-500">⏰ {new Date(submission.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+                            )}
+                          </div>
+                        </div>
+                        <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold">⏳ Pending</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        <div className="bg-gradient-to-br from-yellow-50 to-white rounded-lg p-2">💵 Cash: <strong>{submission.cash_received?.toLocaleString()}</strong></div>
+                        <div className="bg-gradient-to-br from-green-50 to-white rounded-lg p-2">💳 Prepaid: <strong>{submission.prepayment_received?.toLocaleString()}</strong></div>
+                        <div className="bg-gradient-to-br from-blue-50 to-white rounded-lg p-2">🏦 Credit: <strong>{submission.credit_received?.toLocaleString()}</strong></div>
+                        <div className="bg-gradient-to-br from-purple-50 to-white rounded-lg p-2">⛽ Fuel Card: <strong>{(submission.fuel_card_received || 0).toLocaleString()}</strong></div>
+                      </div>
+                      {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
+                        <div className="bg-gray-50 rounded-xl p-3 mt-2">
+                          <h4 className="font-semibold text-gray-900 mb-2">🚗 Own Use Details:</h4>
+                          <ul className="space-y-1 text-sm">
+                            {submission.own_use.map((ou: any, idx: number) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <span className="text-blue-600">•</span>
+                                <span>
+                                  {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
+                                  {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
+                                  {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
+                                  Volume: {ou.volume}L, Amount: {ou.amount} MWK
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 mt-3">
+                        <p className="text-sm text-gray-600">Expected: <span className="font-bold text-gray-900 text-lg">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
+                        <p className="text-sm text-gray-600">Collected: <span className="font-bold text-gray-900 text-lg">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
+                        <div className="mt-2">
+                          {getBalance(submission).label !== 'Balanced' ? (
+                            <div className={cn(
+                              "font-bold text-lg p-2 rounded-lg",
+                              getBalance(submission).label === 'Shortage' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                            )}>
+                              {getBalance(submission).label === 'Shortage' ? '⚠️' : '✅'} {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
+                            </div>
+                          ) : (
+                            <div className="bg-gray-100 text-gray-700 font-bold text-lg p-2 rounded-lg">✅ Balanced</div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-200">
+                        <Button 
+                          onClick={() => authorise.mutate(submission.id)} 
+                          className="flex-1 bg-green-100/70 hover:bg-green-200/90 hover:scale-[1.02] text-green-800 rounded-xl px-4 py-3 font-semibold shadow-sm border border-green-300 transition-all duration-200 active:scale-[0.98]"
+                        >
+                          <Check className="w-5 h-5 mr-2" /> Authorise
+                        </Button>
+                        <Button 
+                          onClick={() => setModal({ open: true, submission })} 
+                          className="flex-1 bg-red-100/70 hover:bg-red-200/90 hover:scale-[1.02] text-red-800 rounded-xl px-4 py-3 font-semibold shadow-sm border border-red-300 transition-all duration-200 active:scale-[0.98]"
+                        >
+                          <X className="w-5 h-5 mr-2" /> Request Fix
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {section === 'fix' && (
+          <div>
+            {requestedFix.length === 0 ? (
+              <div className="text-center py-12 bg-white/70 backdrop-blur-md rounded-2xl shadow-lg">
+                <div className="text-6xl mb-4">🎉</div>
+                <p className="text-gray-600 text-lg font-semibold">No fix requests pending</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {requestedFix.map((submission: any) => (
+                  <Card key={submission.id} className="bg-gradient-to-r from-yellow-50 to-orange-50 backdrop-blur-md shadow-lg hover:shadow-xl transition-all rounded-2xl border-2 border-yellow-300">
+                    <CardContent className="space-y-3 p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-yellow-600 rounded-full flex items-center justify-center text-white font-bold">
+                            {(submission.attendant?.username || submission.attendant_id || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold text-gray-900">{submission.attendant?.username || submission.attendant_id || 'Unknown Attendant'}</p>
+                            <p className="text-sm text-gray-600">⛽ {pumpMap[submission.pump_id] || submission.pump_id || '?'} • {submission.shift_type === 'day' ? '☀️ Day' : '🌙 Night'} • 📅 {submission.shift_date}</p>
+                          </div>
+                        </div>
+                        <span className="bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-semibold">🔧 Fix Requested</span>
+                      </div>
+                      
+                      <div className="bg-red-100 border-l-4 border-red-600 rounded-lg p-3 mb-3">
+                        <p className="font-semibold text-red-900">⚠️ Reason for Fix:</p>
+                        <p className="text-red-800 font-bold mt-1">{submission.fix_reason}</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        <div className="bg-white rounded-lg p-2">💵 Cash: <strong>{submission.cash_received?.toLocaleString()}</strong></div>
+                        <div className="bg-white rounded-lg p-2">💳 Prepaid: <strong>{submission.prepayment_received?.toLocaleString()}</strong></div>
+                        <div className="bg-white rounded-lg p-2">🏦 Credit: <strong>{submission.credit_received?.toLocaleString()}</strong></div>
+                        <div className="bg-white rounded-lg p-2">⛽ Fuel Card: <strong>{(submission.fuel_card_received || 0).toLocaleString()}</strong></div>
+                      </div>
+                      
+                      <div className="bg-white rounded-xl p-4 mt-3">
+                        <p className="text-sm text-gray-600">Expected: <span className="font-bold text-gray-900 text-lg">{getBalance(submission).expected.toLocaleString()} MWK</span></p>
+                        <p className="text-sm text-gray-600">Collected: <span className="font-bold text-gray-900 text-lg">{getBalance(submission).collected.toLocaleString()} MWK</span></p>
+                        <div className="mt-2">
+                          {getBalance(submission).label !== 'Balanced' ? (
+                            <div className={cn(
+                              "font-bold text-lg p-2 rounded-lg",
+                              getBalance(submission).label === 'Shortage' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                            )}>
+                              {getBalance(submission).label === 'Shortage' ? '⚠️' : '✅'} {getBalance(submission).label}: {getBalance(submission).value.toLocaleString()} MWK
+                            </div>
+                          ) : (
+                            <div className="bg-gray-100 text-gray-700 font-bold text-lg p-2 rounded-lg">✅ Balanced</div>
+                          )}
+                        </div>
+                      </div>
+                      {submission.own_use && Array.isArray(submission.own_use) && submission.own_use.length > 0 && (
+                        <div className="bg-gray-50 rounded-xl p-3 mt-2">
+                          <h4 className="font-semibold text-gray-900 mb-2">🚗 Own Use Details:</h4>
+                          <ul className="space-y-1 text-sm">
+                            {submission.own_use.map((ou: any, idx: number) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <span className="text-yellow-600">•</span>
+                                <span>
+                                  {ou.type === 'vehicle' && `Vehicle: ${ou.registration || ''}, `}
+                                  {ou.type === 'genset' && `Genset: ${ou.hours || ''} hours, `}
+                                  {ou.type === 'lawnmower' && `Lawnmower: ${ou.gardener || ''}, `}
+                                  Volume: {ou.volume}L, Amount: {ou.amount} MWK
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Modal for request fix with modern styling */}
+        {modal.open && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-md p-6 border border-white/30">
+              <h2 className="text-xl font-bold mb-4 text-gray-900">🔧 Request Fix for {modal.submission?.attendant?.username || modal.submission?.attendant_id}</h2>
+              <textarea
+                className="w-full border-2 border-gray-200 rounded-xl p-3 mb-4 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                rows={4}
+                placeholder="Describe what needs to be fixed..."
+                value={modalReason}
+                onChange={(e) => setModalReason(e.target.value)}
+              />
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  onClick={() => setModal({ open: false, submission: null })} 
+                  variant="outline"
+                  className="rounded-xl px-4 py-2 font-semibold bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 border border-gray-300 shadow-sm transition-all duration-200 active:scale-[0.98]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-red-100/70 hover:bg-red-200/90 hover:scale-[1.02] text-red-800 rounded-xl px-4 py-2 font-semibold shadow-sm border border-red-300 transition-all duration-200 active:scale-[0.98]"
+                  onClick={() => modal.submission && request.mutate({ id: modal.submission.id, reason: modalReason })}
+                  disabled={request.isPending || !modalReason.trim() || !modal.submission}
+                >
+                  {request.isPending ? 'Submitting...' : 'Submit Request'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

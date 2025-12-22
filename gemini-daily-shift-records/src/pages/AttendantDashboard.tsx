@@ -369,27 +369,29 @@ useEffect(() => {
   }
 }, [submitted, setLocation]);  // Include submitted in dependencies
 
-     function handleSaveDraft() {
-    if (!selectedPumpId) {
-      alert('Please select a pump first');
-      return;
-    }
-
+  function handleSaveDraft() {
     const draft = {
-      pump_id: selectedPumpId,
-      opening_reading: reading.opening,
-      closing_reading: reading.closing,
+      pumpReadings,
       cash,
       prepayments,
       credits,
       myFuelCards,
       fdhCards,
       nationalBankCards,
+      moPayments,
+      ownUseEntries,
       shift,
       shift_date: new Date().toISOString().slice(0, 10),
     };
     localStorage.setItem('shiftDraft', JSON.stringify(draft));
-    alert('Draft saved!');
+    // Show success notification
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-xl shadow-lg z-50 font-semibold';
+    notification.textContent = '✅ Draft saved successfully!';
+    document.body.appendChild(notification);
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
   }
   
   useEffect(() => {
@@ -398,18 +400,16 @@ useEffect(() => {
       try {
         const draft = JSON.parse(savedDraft);
         if (draft) {
-          setSelectedPumpId(draft.pump_id || "");
-          setReading({ 
-            opening: Number(draft.opening_reading) || 0, 
-            closing: Number(draft.closing_reading) || 0 
-          });
+          setPumpReadings(draft.pumpReadings || []);
           setCash(draft.cash || '');
           setPrepayments(draft.prepayments || [{ name: '', amount: '' }]);
           setCredits(draft.credits || [{ name: '', amount: '' }]);
           setMyFuelCards(draft.myFuelCards || [{ name: '', amount: '' }]);
           setFdhCards(draft.fdhCards || [{ name: '', amount: '' }]);
           setNationalBankCards(draft.nationalBankCards || [{ name: '', amount: '' }]);
-          
+          setMoPayments(draft.moPayments || [{ name: '', amount: '' }]);
+          setOwnUseEntries(draft.ownUseEntries || [{ type: 'vehicle', registration: '', volume: '', fuelType: 'petrol' }]);
+          setShift(draft.shift || 'day');
         }
       } catch (error) {
         console.error('Error loading draft:', error);
@@ -420,12 +420,28 @@ useEffect(() => {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <svg className="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-        </svg>
-      </div>
+      <>
+        <div
+          className="fixed inset-0 w-full h-full z-0"
+          style={{
+            backgroundImage: 'url("/puma.jpg")',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundAttachment: 'fixed',
+          }}
+          aria-hidden="true"
+        />
+        <div className="relative min-h-screen flex items-center justify-center z-10">
+          <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-2xl">
+            <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <p className="text-gray-900 font-semibold">Loading...</p>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -488,341 +504,384 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
       />
       {/* Foreground content */}
       <div className="relative min-h-screen w-full p-2 sm:p-4 space-y-4 z-10">
-        <div>
-          <div className="flex flex-col sm:flex-row w-full  justify-between gap-2 px-1 sm:px-2">
-      <h2 className="text-base font-semibold text-white truncate">
-        Welcome, {user?.username || 'Guest'}!
-      </h2>
+        {/* Header with glassmorphism */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 mb-4">
+          <div className="flex flex-col sm:flex-row w-full justify-between gap-2 items-center">
+            <h2 className="text-xl font-bold text-gray-900">
+              👋 Welcome, {user?.username || 'Guest'}!
+            </h2>
 
-      
-  <div className="relative justify-center flex  max-w-lg mx-auto">
-  <button
-  className="justify-center flex-col sm:flex-row"
-    onClick={() => {
-      setShowNotifications(true);
-      setViewedNotifications(true); // Mark notifications as viewed
-    }}
-    title="Fix Requests"
-  >
-    <svg width="28" height="28" fill="none" viewBox="0 0 24 24" >
-      <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-5-6.32V4a1 1 0 1 0-2 0v.68C7.63 5.36 6 7.92 6 11v5l-1.29 1.29A1 1 0 0 0 6 19h12a1 1 0 0 0 .71-1.71L18 16z" fill="#f59e42"/>
-    </svg>
-    {fixNotifications.length > 0 && !viewedNotifications && (
-      <span className="absolute top-0 right-0 bg-red-600 text-white rounded-full text-xs px-1.5 py-0.5">
-        {fixNotifications.length}
-      </span>
-    )}
-  </button>
-  {/* Notification Modal Popup */}
-  {showNotifications && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowNotifications(false)}>
-      <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto p-4 relative"
-        style={{ minWidth: 320 }}
-        onClick={e => e.stopPropagation()}
-      >
-        <button
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold"
-          onClick={() => setShowNotifications(false)}
-          aria-label="Close"
-        >
-          ×
-        </button>
-        <div className="font-bold text-lg mb-2 text-gray-800">Notifications</div>
-        {fixNotifications.length === 0 ? (
-          <div className="p-4 text-gray-500 text-center">No fix requests.</div>
-        ) : (
-          <div className="space-y-2">
-            {fixNotifications.map((n) => (
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <button
+                  className="relative p-2 bg-orange-100 hover:bg-orange-200 rounded-xl transition-all shadow-md"
+                  onClick={() => {
+                    setShowNotifications(true);
+                    setViewedNotifications(true);
+                  }}
+                  title="Fix Requests"
+                >
+                  <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
+                    <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-5-6.32V4a1 1 0 1 0-2 0v.68C7.63 5.36 6 7.92 6 11v5l-1.29 1.29A1 1 0 0 0 6 19h12a1 1 0 0 0 .71-1.71L18 16z" fill="#f59e42"/>
+                  </svg>
+                  {fixNotifications.length > 0 && !viewedNotifications && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full text-xs px-2 py-0.5 font-bold shadow-md">
+                      {fixNotifications.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+              
+              <Button
+                onClick={handleLogout}
+                className="bg-red-100/80 hover:bg-red-200/90 hover:scale-[1.02] text-red-800 rounded-xl px-4 py-2 font-semibold shadow-sm border border-red-300 transition-all duration-200 active:scale-[0.98]"
+              >
+                🚪 Log Out
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Notification Modal with modern styling */}
+        {showNotifications && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4" onClick={() => setShowNotifications(false)}>
+            <div
+              className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-md p-6 relative border border-white/30"
+              onClick={e => e.stopPropagation()}
+            >
               <button
-                key={n.id}
-              className="w-full text-left px-2 sm:px-4 py-2 rounded bg-orange-50 hover:bg-orange-100 border border-orange-200 flex flex-col"
+                className="absolute top-3 right-3 text-gray-400 hover:text-red-600 text-3xl font-bold transition-colors"
+                onClick={() => setShowNotifications(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <h3 className="font-bold text-2xl mb-4 text-gray-900">🔔 Notifications</h3>
+              {fixNotifications.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">✅</div>
+                  <p className="text-gray-600 text-lg">No fix requests.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {fixNotifications.map((n) => (
+                    <button
+                      key={n.id}
+                      className="w-full text-left px-4 py-3 rounded-xl bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-300 transition-all shadow-md hover:shadow-lg"
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setViewedNotifications(true);
+                        setShowSubmissions(false);
+                        setSelectedPumpId(String(n.pump_id));
+                        setShift(n.shift_type);
+                        setReading({ opening: n.opening_reading, closing: n.closing_reading });
+                        setExpandedDates((prev) => ({ ...prev, [n.shift_date]: true }));
+                      }}
+                    >
+                      <div className="font-bold text-orange-900 mb-1">🔧 Fix requested for Pump {n.pump_id}</div>
+                      <div className="text-sm text-gray-700">{n.shift_type === 'day' ? '☀️ Day' : '🌙 Night'} shift • 📅 {n.shift_date}</div>
+                      <div className="text-sm text-orange-700 font-semibold mt-1">Reason: {n.fix_reason}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}    
+
+        {/* Action Bar with modern styling */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 mb-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="font-semibold text-gray-700 text-sm">🔄 Shift:</label>
+              <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
+                <SelectTrigger className="w-36 bg-white/70 rounded-xl border-gray-200">
+                  {shift === 'day' ? '☀️ Day Shift' : '🌙 Night Shift'}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">☀️ Day Shift</SelectItem>
+                  <SelectItem value="night">🌙 Night Shift</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex gap-2 ml-auto">
+              <Button
+                variant="outline"
+                className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl px-4 py-2 font-semibold shadow-sm transition-all duration-200 border border-gray-300 active:scale-[0.98]"
+                onClick={() => setShowReadings(true)}
+              >
+                ⛽ Enter Readings
+              </Button>
+
+              <Button
+                variant="outline"
+                className={cn(
+                  "rounded-xl px-4 py-2 font-semibold shadow-sm transition-all duration-200 border active:scale-[0.98]",
+                  showSubmissions 
+                    ? "bg-gray-200/80 hover:bg-gray-300/90 hover:scale-[1.02] text-gray-900 border-gray-400" 
+                    : "bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 border-gray-300"
+                )}
                 onClick={() => {
-                  setShowNotifications(false);
-                  setViewedNotifications(true); // Mark notifications as viewed
-                  setShowSubmissions(false); // Hide submissions section
-                  setSelectedPumpId(String(n.pump_id));
-                  setShift(n.shift_type);
-                  setReading({ opening: n.opening_reading, closing: n.closing_reading });
-                  setExpandedDates((prev) => ({ ...prev, [n.shift_date]: true }));
-                  setTimeout(() => {
-                    // Only scroll to pump section, not submissions
-                  }, 100);
+                  setShowSubmissions(!showSubmissions);
+                  setShowReadings(false);
                 }}
               >
-                <span className="font-medium text-orange-800">Fix requested for Pump {n.pump_id} ({n.shift_type} shift)</span>
-                <span className="text-xs text-gray-600">{n.shift_date}</span>
-                <span className="text-xs text-orange-700">Reason: {n.fix_reason}</span>
-              </button>
-            ))}
+                {showSubmissions ? '🏠 Home' : '📋 My Submissions'}
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
-    </div>
-  )}
-</div>
-
-
-      
-
- 
-      <Button
-        onClick={handleLogout}
-        className=" flex justify-right bg-red-600 text-white hover:bg-red-700 rounded-md text-sm px-3 py-1"
-      >
-        Log Out
-      </Button>
-    </div>
-
-    </div>    
-
-  <div className="flex flex-col sm:flex-row items-center mb-6 gap-2 sm:gap-4"> {/* Responsive layout */}
-  <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4"> {/* Responsive group */}
-          <label className="font-semibold whitespace-nowrap" style={{ color: '#222' }}>
-            Select Shift:
-          </label>
-          <Select value={shift} onValueChange={val => setShift(val as 'day' | 'night')}>
-            <SelectTrigger className="w-32 bg-white/50">
-              {shift.toUpperCase()} Shift
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="day">Day</SelectItem>
-              <SelectItem value="night">Night</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
-       
-        <Button
-          variant="outline"
-          className="bg-white/50 ml-4"
-          onClick={() => setShowReadings(true)}
-        >
-          Enter Pump Readings
-
-        </Button>
-
-        <Button
-          variant="outline"
-          className="bg-white/50 ml-4"
-          onClick={() => {
-            setShowSubmissions(!showSubmissions);
-            setShowReadings(false);
-          }}
-        >
-          {showSubmissions ? 'Hide Submissions' : 'My Submissions'}
-        </Button>
-      </div>
      
 
-    {showReadings &&(
-        <div className="space-y-4 ">
-          <div className="flex gap-2 mb-2">
-            <Button
-              variant="outline"
-              className="bg-white/50"
-              onClick={() => {
-                setShowReadings(false);
-                setSelectedPumpId("");
-              }}
-            >
-              home
-            </Button>
-            <Button
-              variant="outline"
-              className="bg-white/50"
-              onClick={handleSaveDraft}
-            >
-              Save Draft
-            </Button>
-          </div>
+        {showReadings && (
+          <div className="space-y-4">
+            <div className="flex gap-3 mb-4">
+              <Button
+                variant="outline"
+                className="bg-white/80 backdrop-blur-md hover:bg-white text-gray-900 rounded-xl px-4 py-2 font-semibold shadow-md hover:shadow-lg border-gray-200"
+                onClick={() => {
+                  setShowReadings(false);
+                  setSelectedPumpId("");
+                }}
+              >
+                🏠 Home
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl px-4 py-2 font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]"
+                onClick={handleSaveDraft}
+              >
+                💾 Save Draft
+              </Button>
+            </div>
 
-          {/* Multi-pump entry section start */}
+            {/* Multi-pump entry section */}
             <div className="space-y-4">
-            <Button
-              variant="default"
-              className="bg-black/60 hover:bg-white/10 hover:text-black text-white font-bold rounded-lg mb-4 px-6 py-4 flex items-center justify-center text-lg shadow transition-all"
-              style={{ minWidth: 140, minHeight: 56 }}
-              onClick={() => setShowPumpModal(true)}
-            >
-              <span className="mr-2 text-2xl">+</span> Add Pump
-            </Button>
+              <Button
+                variant="default"
+                className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 font-bold rounded-2xl px-8 py-4 flex items-center justify-center text-lg shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]"
+                onClick={() => setShowPumpModal(true)}
+              >
+                <span className="mr-2 text-2xl">+</span> Add Pump
+              </Button>
 
-            {/* Modal for adding pump reading */}
-            {showPumpModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowPumpModal(false)}>
-                <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto p-6 relative" onClick={e => e.stopPropagation()}>
-                  <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold" onClick={() => setShowPumpModal(false)} aria-label="Close">×</button>
-                  <h3 className="font-semibold mb-4">Add Pump Reading</h3>
-                  <div className="space-y-3">
-                    <label className="block font-medium">Pump</label>
-                    {loadingPumps ? (
-                      <div className="text-gray-600">Loading pumps...</div>
-                    ) : pumpError ? (
-                      <div className="text-red-600">{pumpError}</div>
-                    ) : (
-                      <select className="w-full border rounded p-2" value={modalPumpId} onChange={e => setModalPumpId(e.target.value)}>
-                        <option value="">Select pump</option>
-                        {pumps.map(p => (
-                          <option key={p.id} value={p.id} disabled={pumpReadings.some(r => r.pumpId === String(p.id))}>
-                            {p.name} {pumpReadings.some(r => r.pumpId === String(p.id)) && '(Added)'}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <label className="block font-medium">Opening Meter</label>
-                    <Input type="number" value={modalOpening} onChange={e => setModalOpening(e.target.value)} placeholder="Opening" />
-                    <label className="block font-medium">Closing Meter</label>
-                    <Input type="number" value={modalClosing} onChange={e => setModalClosing(e.target.value)} placeholder="Closing" />
-                    {modalError && <div className="text-red-600 text-sm">{modalError}</div>}
-                    <Button className="mt-2 w-full" onClick={handleAddPumpReading} disabled={loadingPumps || !!pumpError}>Add</Button>
+              {/* Modal for adding pump reading */}
+              {showPumpModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4" onClick={() => setShowPumpModal(false)}>
+                  <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-md p-6 relative border border-white/30" onClick={e => e.stopPropagation()}>
+                    <button className="absolute top-3 right-3 text-gray-400 hover:text-red-600 text-3xl font-bold transition-colors" onClick={() => setShowPumpModal(false)} aria-label="Close">×</button>
+                    <h3 className="font-bold text-2xl mb-4 text-gray-900">⛽ Add Pump Reading</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block font-semibold text-gray-700 mb-2">Pump</label>
+                        {loadingPumps ? (
+                          <div className="text-gray-600 p-3 bg-gray-50 rounded-xl">Loading pumps...</div>
+                        ) : pumpError ? (
+                          <div className="text-red-600 p-3 bg-red-50 rounded-xl">{pumpError}</div>
+                        ) : (
+                          <select className="w-full border-2 border-gray-200 rounded-xl p-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" value={modalPumpId} onChange={e => setModalPumpId(e.target.value)}>
+                            <option value="">Select pump</option>
+                            {pumps.map(p => (
+                              <option key={p.id} value={p.id} disabled={pumpReadings.some(r => r.pumpId === String(p.id))}>
+                                {p.name} {pumpReadings.some(r => r.pumpId === String(p.id)) && '(Added)'}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-gray-700 mb-2">Opening Meter</label>
+                        <Input type="number" value={modalOpening} onChange={e => setModalOpening(e.target.value)} placeholder="Opening reading" className="rounded-xl border-2 border-gray-200 p-3" />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-gray-700 mb-2">Closing Meter</label>
+                        <Input type="number" value={modalClosing} onChange={e => setModalClosing(e.target.value)} placeholder="Closing reading" className="rounded-xl border-2 border-gray-200 p-3" />
+                      </div>
+                      {modalError && <div className="text-red-600 text-sm bg-red-50 p-3 rounded-xl font-semibold">⚠️ {modalError}</div>}
+                      <Button className="mt-2 w-full bg-white/70 hover:bg-white/90 hover:scale-[1.01] text-gray-900 rounded-xl py-3 font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.99]" onClick={handleAddPumpReading} disabled={loadingPumps || !!pumpError}>
+                        Add Pump
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Cards for each pump reading */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pumpReadings.map((r, _idx) => {
-                const pump = pumps.find(p => String(p.id) === String(r.pumpId));
-                const volume = r.closing - r.opening;
-                const expected = pump ? volume * Number(pump.price) : 0;
-                return (
-                  <Card key={r.pumpId} className="bg-white/50 shadow-md" style={{ borderRadius: 12, border: '1px solid #e5e5ea' }}>
-                    <CardContent className="space-y-2 p-4">
-                      <div className="flex justify-between items-center">
-                        <h3 className="font-semibold">{pump?.name}{pump?.type ? ` (${pump.type})` : ''}</h3>
-                        <Button size="sm" variant="ghost" onClick={() => handleRemovePump(r.pumpId)}>Remove</Button>
-                      </div>
-                      <div>Opening: <strong>{r.opening}</strong></div>
-                      <div>Closing: <strong>{r.closing}</strong></div>
-                      <div>Volume Sold: <strong>{!isNaN(volume) ? volume.toLocaleString() : 0} litres</strong></div>
-                      <div>Expected: <strong>{!isNaN(expected) ? expected.toLocaleString() : 0} MWK</strong></div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            {/* Consolidated summary below cards */}
-            <div className="p-4 border rounded-lg space-y-2 bg-white/50 shadow mt-4">
-              <h3 className="font-semibold text-xl">Consolidated Summary</h3>
-              {(() => {
-                const totalVolume = pumpReadings.reduce((sum, r) => sum + (r.closing - r.opening), 0);
-                const totalExpected = pumpReadings.reduce((sum, r) => {
+              {/* Cards for each pump reading */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {pumpReadings.map((r, _idx) => {
                   const pump = pumps.find(p => String(p.id) === String(r.pumpId));
-                  return sum + ((r.closing - r.opening) * (pump ? Number(pump.price) : 0));
-                }, 0);
-                return (
-                  <>
-                    <p>Total Volume: <strong>{!isNaN(totalVolume) ? totalVolume.toLocaleString() : 0} litres</strong></p>
-                    <p>Total Expected Return: <strong>{!isNaN(totalExpected) ? totalExpected.toLocaleString() : 0} MWK</strong></p>
-                  </>
-                );
-              })()}
+                  const volume = r.closing - r.opening;
+                  const expected = pump ? volume * Number(pump.price) : 0;
+                  return (
+                    <Card key={r.pumpId} className="bg-white/90 backdrop-blur-md shadow-lg hover:shadow-xl transition-all rounded-2xl border border-blue-200">
+                      <CardContent className="space-y-3 p-5">
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                            <span className="text-2xl">⛽</span>
+                            {pump?.name}{pump?.type ? ` (${pump.type})` : ''}
+                          </h3>
+                          <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg" onClick={() => handleRemovePump(r.pumpId)}>
+                            🗑️ Remove
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="bg-blue-50 rounded-lg p-2">Opening: <strong className="text-blue-900">{r.opening}</strong></div>
+                          <div className="bg-green-50 rounded-lg p-2">Closing: <strong className="text-green-900">{r.closing}</strong></div>
+                          <div className="bg-purple-50 rounded-lg p-2">Volume: <strong className="text-purple-900">{!isNaN(volume) ? volume.toLocaleString() : 0}L</strong></div>
+                          <div className="bg-orange-50 rounded-lg p-2">Expected: <strong className="text-orange-900">{!isNaN(expected) ? expected.toLocaleString() : 0}</strong></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Consolidated summary below cards */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur-md rounded-2xl p-6 shadow-lg border border-blue-200 mt-4">
+                <h3 className="font-bold text-2xl mb-4 text-gray-900 flex items-center gap-2">
+                  <span className="text-3xl">📊</span>
+                  Consolidated Summary
+                </h3>
+                {(() => {
+                  const totalVolume = pumpReadings.reduce((sum, r) => sum + (r.closing - r.opening), 0);
+                  const totalExpected = pumpReadings.reduce((sum, r) => {
+                    const pump = pumps.find(p => String(p.id) === String(r.pumpId));
+                    return sum + ((r.closing - r.opening) * (pump ? Number(pump.price) : 0));
+                  }, 0);
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-xl p-4 shadow-md">
+                        <div className="text-sm text-gray-600 font-semibold">Total Volume</div>
+                        <div className="text-3xl font-bold text-blue-900">{!isNaN(totalVolume) ? totalVolume.toLocaleString() : 0}</div>
+                        <div className="text-sm text-gray-500">litres</div>
+                      </div>
+                      <div className="bg-white rounded-xl p-4 shadow-md">
+                        <div className="text-sm text-gray-600 font-semibold">Expected Return</div>
+                        <div className="text-3xl font-bold text-green-900">{!isNaN(totalExpected) ? totalExpected.toLocaleString() : 0}</div>
+                        <div className="text-sm text-gray-500">MWK</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
-          </div>
           {/* Multi-pump entry section end */}
 
-          <Card className="bg-white/50 shadow-md">
-            <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">Cash Sales</h3> {/* Add a heading */}
-              <div className="flex gap-2 ">
+            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-yellow-200">
+              <CardContent className="space-y-3 p-5">
+                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">💵</span>
+                  Cash Sales
+                </h3>
                 <Input
                   type="number"
                   value={cash}
                   onChange={e => handleNumericChange(e, setCash)}
                   placeholder="Total Cash Received"
-                  className="text-black bg-white/40"
+                  className="text-black bg-white border-2 border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-yellow-500"
                 />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-white/50 shadow-md">
-            <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">Prepayments</h3>
-              {prepayments.map((p, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <Input
-                    className="text-black bg-white/50"
-                    placeholder="Customer Name"
-                    value={p.name}
-                    onChange={e => updateList(prepayments, setPrepayments, idx, 'name', e.target.value)}
-                  />
-                  <Input
-                    className="text-black bg-white/50"
-                    type="number"
-                    placeholder="Amount"
-                    value={p.amount}
-                    onChange={e => handleNumericChange(e, (val) =>
-                      updateList(prepayments, setPrepayments, idx, 'amount', val)
-                    )}
-                  />
-                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
-                    {p.amount && !isNaN(Number(p.amount)) ? Number(p.amount).toLocaleString() : ''}
-                  </span>
-                </div>
-              ))}
-              <Button onClick={() => addEntry(prepayments, setPrepayments)}>+ Add Prepayment</Button>
-              {/* Save prepayments as array in DB */}
-            </CardContent>
-          </Card>
-          <Card className="bg-white/50 shadow-md">
-            <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">Credit Sales</h3>
-              {credits.map((c, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <Input
-                    className="text-black bg-white/50"
-                    placeholder="Customer Name"
-                    value={c.name}
-                    onChange={e => updateList(credits, setCredits, idx, 'name', e.target.value)}
-                  />
-                  <Input
-                    className="text-black bg-white/50"
-                    type="number"
-                    placeholder="Amount"
-                    value={c.amount}
-                    onChange={e => handleNumericChange(e, (val) =>
-                      updateList(credits, setCredits, idx, 'amount', val)
-                    )}
-                  />
-                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
-                    {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
-                  </span>
-                </div>
-              ))}
-              <Button onClick={() => addEntry(credits, setCredits)}>+ Add Credit</Button>
-              {/* Save credits as array in DB */}
-            </CardContent>
-          </Card>
-          <Card className="bg-white/50 shadow-md">
-            <CardContent className="space-y-2 p-4">
-              <h3 className="font-semibold">Card Payments</h3>
-              <h4 className="font-semibold text-sm mt-2">My Fuel Card Payments</h4>
-              {myFuelCards.map((c, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <Input
-                    className="text-black bg-white/50"
-                    placeholder="Receipt number"
-                    value={c.name}
-                    onChange={e => updateList(myFuelCards, setMyFuelCards, idx, 'name', e.target.value)}
-                  />
-                  <Input
-                    className="text-black bg-white/50"
-                    type="number"
-                    placeholder="Amount"
-                    value={c.amount}
-                    onChange={e => handleNumericChange(e, (val) =>
-                      updateList(myFuelCards, setMyFuelCards, idx, 'amount', val)
-                    )}
-                  />
-                  <span className="ml-2 text-gray-700 text-sm min-w-[70px] text-right">
-                    {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
-                  </span>
-                </div>
-              ))}
-              <Button onClick={() => addEntry(myFuelCards, setMyFuelCards)}>+ Add My Fuel Card Payment</Button>
+            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-green-200">
+              <CardContent className="space-y-3 p-5">
+                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">💳</span>
+                  Prepayments
+                </h3>
+                {prepayments.map((p, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      placeholder="Customer Name"
+                      value={p.name}
+                      onChange={e => updateList(prepayments, setPrepayments, idx, 'name', e.target.value)}
+                    />
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      type="number"
+                      placeholder="Amount"
+                      value={p.amount}
+                      onChange={e => handleNumericChange(e, (val) =>
+                        updateList(prepayments, setPrepayments, idx, 'amount', val)
+                      )}
+                    />
+                    <span className="ml-2 text-green-700 text-sm min-w-[70px] text-right font-bold">
+                      {p.amount && !isNaN(Number(p.amount)) ? Number(p.amount).toLocaleString() : ''}
+                    </span>
+                  </div>
+                ))}
+                <Button onClick={() => addEntry(prepayments, setPrepayments)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">
+                  + Add Prepayment
+                </Button>
+              </CardContent>
+            </Card>
+            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-blue-200">
+              <CardContent className="space-y-3 p-5">
+                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">🏦</span>
+                  Credit Sales
+                </h3>
+                {credits.map((c, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      placeholder="Customer Name"
+                      value={c.name}
+                      onChange={e => updateList(credits, setCredits, idx, 'name', e.target.value)}
+                    />
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      type="number"
+                      placeholder="Amount"
+                      value={c.amount}
+                      onChange={e => handleNumericChange(e, (val) =>
+                        updateList(credits, setCredits, idx, 'amount', val)
+                      )}
+                    />
+                    <span className="ml-2 text-blue-700 text-sm min-w-[70px] text-right font-bold">
+                      {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
+                    </span>
+                  </div>
+                ))}
+                <Button onClick={() => addEntry(credits, setCredits)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">
+                  + Add Credit
+                </Button>
+              </CardContent>
+            </Card>
+            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-purple-200">
+              <CardContent className="space-y-4 p-5">
+                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">💳</span>
+                  Card Payments
+                </h3>
+                <h4 className="font-semibold text-sm text-gray-700 mt-3">⛽ My Fuel Card Payments</h4>
+                {myFuelCards.map((c, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      placeholder="Receipt number"
+                      value={c.name}
+                      onChange={e => updateList(myFuelCards, setMyFuelCards, idx, 'name', e.target.value)}
+                    />
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      type="number"
+                      placeholder="Amount"
+                      value={c.amount}
+                      onChange={e => handleNumericChange(e, (val) =>
+                        updateList(myFuelCards, setMyFuelCards, idx, 'amount', val)
+                      )}
+                    />
+                    <span className="ml-2 text-purple-700 text-sm min-w-[70px] text-right font-bold">
+                      {c.amount && !isNaN(Number(c.amount)) ? Number(c.amount).toLocaleString() : ''}
+                    </span>
+                  </div>
+                ))}
+                <Button onClick={() => addEntry(myFuelCards, setMyFuelCards)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">
+                  + Add Fuel Card
+                </Button>
 
               <h4 className="font-semibold text-sm mt-4">FDH Bank Card Payments</h4>
               {fdhCards.map((c, idx) => (
@@ -847,7 +906,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                   </span>
                 </div>
               ))}
-              <Button onClick={() => addEntry(fdhCards, setFdhCards)}>+ Add FDH Card Payment</Button>
+              <Button onClick={() => addEntry(fdhCards, setFdhCards)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add FDH Card Payment</Button>
 
               <h4 className="font-semibold text-sm mt-4">National Bank Card Payments</h4>
               {nationalBankCards.map((c, idx) => (
@@ -872,7 +931,7 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                   </span>
                 </div>
               ))}
-              <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)}>+ Add National Bank Card Payment</Button>
+              <Button onClick={() => addEntry(nationalBankCards, setNationalBankCards)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add National Bank Card Payment</Button>
 
              <h4 className="font-semibold text-sm mt-4">MO - Payments </h4>
               {moPayments.map((m, idx) => (
@@ -897,52 +956,61 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
                   </span>
                 </div>
               ))}
-              <Button onClick={() => addEntry(moPayments, setMoPayments)}>+ Add Mo Payment</Button>
+              <Button onClick={() => addEntry(moPayments, setMoPayments)} className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold text-sm shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]">+ Add Mo Payment</Button>
 
  
 
             </CardContent>
           </Card>
 
-          <Card className="bg-white/50 shadow-md">
-  <CardContent className="space-y-4 p-4">
-    <h3 className="text-lg font-semibold">Own Use</h3>
-    {ownUseEntries.map((entry, idx) => (
-      <div key={idx} className="space-y-2 border-b pb-2 mb-2  rounded-lg p-3"> {/* Added bg-gray-100, rounded, p-3 */}
-        <div className="flex justify-between items-center">
-          <h4 className="font-semibold capitalize">{entry.type} Use</h4>
-          {ownUseEntries.length > 1 && (
-            <Button size="sm" variant="ghost" onClick={() => removeOwnUseEntry(idx)}>
-              Remove
-            </Button>
-          )}
-        </div>
+            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl border border-gray-200">
+              <CardContent className="space-y-4 p-5">
+                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <span className="text-2xl">🚗</span>
+                  Own Use
+                </h3>
+                {ownUseEntries.map((entry, idx) => (
+                  <div key={idx} className="space-y-3 border-b border-gray-200 pb-4 mb-4 bg-gray-50 rounded-xl p-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold capitalize text-gray-900">
+                        {entry.type === 'vehicle' && '🚗'} 
+                        {entry.type === 'genset' && '⚡'} 
+                        {entry.type === 'lawnmower' && '🌱'} 
+                        {' '}{entry.type} Use
+                      </h4>
+                      {ownUseEntries.length > 1 && (
+                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg" onClick={() => removeOwnUseEntry(idx)}>
+                          🗑️ Remove
+                        </Button>
+                      )}
+                    </div>
         {entry.type === 'vehicle' && (
           <>
-            <Input
-              className="text-black bg-white/50"
-              placeholder="Vehicle Registration"
-              value={entry.registration}
-              onChange={e => updateOwnUseEntry(idx, 'registration', e.target.value)}
-            />
-            <Input
-              className="text-black bg-white/50"
-              placeholder="Volume (litres)"
-              type="number"
-              value={entry.volume}
-              onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
-            />
-            <select
-              className="w-full border rounded p-2 bg-white/50 text-black"
-              value={entry.fuelType}
-              onChange={e => updateOwnUseEntry(idx, 'fuelType', e.target.value)}
-            >
-              <option value="petrol">Petrol</option>
-              <option value="diesel">Diesel</option>
-            </select>
-            <div className="mt-2">
-              Amount: <strong>{getOwnUseAmount(entry).toLocaleString()} MWK</strong>
-            </div>
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      placeholder="Vehicle Registration"
+                      value={entry.registration}
+                      onChange={e => updateOwnUseEntry(idx, 'registration', e.target.value)}
+                    />
+                    <Input
+                      className="text-black bg-white border-2 border-gray-200 rounded-xl p-3"
+                      placeholder="Volume (litres)"
+                      type="number"
+                      value={entry.volume}
+                      onChange={e => updateOwnUseEntry(idx, 'volume', e.target.value)}
+                    />
+                    <select
+                      className="w-full border-2 border-gray-200 rounded-xl p-3 bg-white text-black focus:ring-2 focus:ring-blue-500"
+                      value={entry.fuelType}
+                      onChange={e => updateOwnUseEntry(idx, 'fuelType', e.target.value)}
+                    >
+                      <option value="petrol">⛽ Petrol</option>
+                      <option value="diesel">🚛 Diesel</option>
+                    </select>
+                    <div className="bg-blue-50 rounded-lg p-3 mt-2">
+                      <span className="text-sm text-gray-600">Amount: </span>
+                      <strong className="text-lg text-blue-900">{getOwnUseAmount(entry).toLocaleString()} MWK</strong>
+                    </div>
           </>
         )}
         {entry.type === 'genset' && (
@@ -1004,166 +1072,189 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
         )}
       </div>
     ))}
-    <div className="flex gap-2">
-      <Button size="sm" variant="outline" onClick={() => addOwnUseEntry('vehicle')}>+ Vehicle</Button>
-      <Button size="sm" variant="outline" onClick={() => addOwnUseEntry('genset')}>+ Genset</Button>
-      <Button size="sm" variant="outline" onClick={() => addOwnUseEntry('lawnmower')}>+ Lawnmower</Button>
-    </div>
-    {/* Submit Own Use button removed as requested */}
-  </CardContent>
-</Card>
+                <div className="flex gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold border border-gray-300 shadow-sm transition-all duration-200 active:scale-[0.98]" onClick={() => addOwnUseEntry('vehicle')}>
+                    🚗 + Vehicle
+                  </Button>
+                  <Button size="sm" variant="outline" className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold border border-gray-300 shadow-sm transition-all duration-200 active:scale-[0.98]" onClick={() => addOwnUseEntry('genset')}>
+                    ⚡ + Genset
+                  </Button>
+                  <Button size="sm" variant="outline" className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 rounded-xl font-semibold border border-gray-300 shadow-sm transition-all duration-200 active:scale-[0.98]" onClick={() => addOwnUseEntry('lawnmower')}>
+                    🌱 + Lawnmower
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
-          <div className="p-4 border rounded-lg space-y-2 bg-white/50 shadow">
-            <h3 className="font-semibold text-xl">Summary</h3>
-            {(() => {
-              // Calculate total expected and total volume from all pump readings
-              const totalVolume = pumpReadings.reduce((sum, r) => sum + (r.closing - r.opening), 0);
-              const totalExpected = pumpReadings.reduce((sum, r) => {
-                const pump = pumps.find(p => String(p.id) === String(r.pumpId));
-                return sum + ((r.closing - r.opening) * (pump ? Number(pump.price) : 0));
-              }, 0);
-              // Calculate total collected
-              const ownUseTotal = ownUseEntries.reduce((sum, entry) => sum + getOwnUseAmount(entry), 0);
-              const collected = Number(cash)
-                + prepayments.reduce((sum, p) => sum + Number(p.amount), 0)
-                + credits.reduce((sum, c) => sum + Number(c.amount), 0)
-                + myFuelCards.reduce((sum, c) => sum + Number(c.amount), 0)
-                + fdhCards.reduce((sum, c) => sum + Number(c.amount), 0)
-                + nationalBankCards.reduce((sum, c) => sum + Number(c.amount), 0)
-                + moPayments.reduce((sum, m) => sum + Number(m.amount), 0)
-                + ownUseTotal;
-              // Calculate average price per litre
-              // Calculate balance
-              let balanceLabel = 'Balanced';
-              let balanceClass = 'text-gray-800';
-              if (collected < totalExpected) {
-                balanceLabel = `Shortage: ${(totalExpected - collected).toLocaleString()} MWK`;
-                balanceClass = 'text-red-600';
-              } else if (collected > totalExpected) {
-                balanceLabel = `Overage: ${(collected - totalExpected).toLocaleString()} MWK`;
-                balanceClass = 'text-green-600';
-              }
-              return (
-                <>
-                  <p>Total Volume Sold: <strong>{!isNaN(totalVolume) ? totalVolume.toLocaleString() : 0} litres</strong></p>
-                  <p>Total Expected Return: <strong>{!isNaN(totalExpected) ? totalExpected.toLocaleString() : 0} MWK</strong></p>
-                  <p>Total Collected: <strong>{!isNaN(collected) ? collected.toLocaleString() : 0} MWK</strong></p>
-                  <p>
-                    {collected < totalExpected && (
-                      <>
-                        Balance: <strong className={cn('ml-2', balanceClass)}>{balanceLabel}</strong>
-                      </>
-                    )}
-                    {collected > totalExpected && (
-                      <>
-                        Balance: <strong className={cn('ml-2', balanceClass)}>{balanceLabel}</strong>
-                      </>
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur-md rounded-2xl p-6 shadow-lg border border-blue-200">
+              <h3 className="font-bold text-2xl mb-4 text-gray-900 flex items-center gap-2">
+                <span className="text-3xl">📊</span>
+                Final Summary
+              </h3>
+              {(() => {
+                const totalVolume = pumpReadings.reduce((sum, r) => sum + (r.closing - r.opening), 0);
+                const totalExpected = pumpReadings.reduce((sum, r) => {
+                  const pump = pumps.find(p => String(p.id) === String(r.pumpId));
+                  return sum + ((r.closing - r.opening) * (pump ? Number(pump.price) : 0));
+                }, 0);
+                const ownUseTotal = ownUseEntries.reduce((sum, entry) => sum + getOwnUseAmount(entry), 0);
+                const collected = Number(cash)
+                  + prepayments.reduce((sum, p) => sum + Number(p.amount), 0)
+                  + credits.reduce((sum, c) => sum + Number(c.amount), 0)
+                  + myFuelCards.reduce((sum, c) => sum + Number(c.amount), 0)
+                  + fdhCards.reduce((sum, c) => sum + Number(c.amount), 0)
+                  + nationalBankCards.reduce((sum, c) => sum + Number(c.amount), 0)
+                  + moPayments.reduce((sum, m) => sum + Number(m.amount), 0)
+                  + ownUseTotal;
+                
+                return (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="bg-white rounded-xl p-4 shadow-md">
+                        <div className="text-sm text-gray-600 font-semibold">Total Volume</div>
+                        <div className="text-2xl font-bold text-blue-900">{!isNaN(totalVolume) ? totalVolume.toLocaleString() : 0}</div>
+                        <div className="text-sm text-gray-500">litres</div>
+                      </div>
+                      <div className="bg-white rounded-xl p-4 shadow-md">
+                        <div className="text-sm text-gray-600 font-semibold">Expected Return</div>
+                        <div className="text-2xl font-bold text-purple-900">{!isNaN(totalExpected) ? totalExpected.toLocaleString() : 0}</div>
+                        <div className="text-sm text-gray-500">MWK</div>
+                      </div>
+                      <div className="bg-white rounded-xl p-4 shadow-md">
+                        <div className="text-sm text-gray-600 font-semibold">Total Collected</div>
+                        <div className="text-2xl font-bold text-green-900">{!isNaN(collected) ? collected.toLocaleString() : 0}</div>
+                        <div className="text-sm text-gray-500">MWK</div>
+                      </div>
+                    </div>
+                    
+                    {collected !== totalExpected && (
+                      <div className={cn(
+                        "rounded-xl p-4 font-bold text-lg text-center",
+                        collected < totalExpected ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                      )}>
+                        {collected < totalExpected ? '⚠️ Shortage' : '✅ Overage'}: {Math.abs(collected - totalExpected).toLocaleString()} MWK
+                      </div>
                     )}
                     {collected === totalExpected && (
-                      <>
-                        Balance: <strong className={cn('ml-2', balanceClass)}>{balanceLabel}</strong>
-                      </>
+                      <div className="bg-gray-100 text-gray-700 rounded-xl p-4 font-bold text-lg text-center">
+                        ✅ Balanced
+                      </div>
                     )}
-                  </p>
-                </>
-              );
-            })()}
-            <Button className="mt-4" onClick={() => submitShift.mutate()} disabled={submitShift.isPending}>
-              {submitShift.isPending ? 'Submitting...' : 'Submit Shift'}
-            </Button>
+                    
+                    <Button 
+                      className="mt-6 w-full bg-gray-900 hover:bg-black hover:scale-[1.01] text-white rounded-2xl py-4 text-lg font-bold shadow-lg border border-gray-800 transition-all duration-200 active:scale-[0.99]" 
+                      onClick={() => submitShift.mutate()} 
+                      disabled={submitShift.isPending}
+                    >
+                      {submitShift.isPending ? '⏳ Submitting...' : '✅ Submit Shift'}
+                    </Button>
+                  </>
+                );
+              })()}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {showSubmissions && (
-<div id="submissions-section" className="mt-8">
-  <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
-    <span>My Submissions</span>
-    {fixNotifications.length > 0 && !viewedNotifications && (
-      <span className="bg-red-600 text-white rounded-full text-xs px-2 py-0.5">
-        {fixNotifications.length} Fix Request{fixNotifications.length > 1 ? 's' : ''}
-      </span>
-    )}
-  </h2>
-  {Object.entries(
-    submissions.reduce<{ [date: string]: any[] }>((acc, s) => {
-      (acc[s.shift_date] = acc[s.shift_date] || []).push(s);
-      return acc;
-    }, {})
-  ).map(([date, records]) => (
-    <div key={date} className="mb-4 border rounded-lg bg-white/60">
-      <button
-        className="w-full text-left px-4 py-2 font-semibold flex items-center justify-between"
-        onClick={() => setExpandedDates((prev) => ({ ...prev, [date]: !prev[date] }))}
-      >
-        <span>{date}</span>
-        <span>{expandedDates[date] ? '▲' : '▼'}</span>
-      </button>
-      {expandedDates[date] && (
-        <div className="px-4 pb-2">
-          {(records as any[]).map((s: any) => {
-            const pumpName = pumps.find(p => String(p.id) === String(s.pump_id))?.name || s.pump_id;
-            return (
-              <div
-                key={s.id}
-                className="flex items-center justify-between border-b py-2"
-              >
-                <div>
-                  <div className="font-medium">
-                    Pump: {pumpName} | Shift: {s.shift_type}
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    Volume: {(s.closing_reading - s.opening_reading).toLocaleString()}L
-                  </div>
+        {showSubmissions && (
+          <div id="submissions-section" className="mt-4">
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-lg border border-white/20 mb-4">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-3 text-gray-900">
+                <span className="text-3xl">📋</span>
+                <span>My Submissions</span>
+                {fixNotifications.length > 0 && !viewedNotifications && (
+                  <span className="bg-red-600 text-white rounded-full text-sm px-3 py-1 font-bold shadow-md">
+                    {fixNotifications.length} Fix Request{fixNotifications.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </h2>
+              
+              {submissions.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📝</div>
+                  <p className="text-gray-600 text-lg">No submissions yet.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Approval/Fix Status */}
-                  {s.is_approved ? (
-                    <span className="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs">Authorised</span>
-                  ) : s.fix_reason && !s.is_approved ? (
-                    <>
-                      <span className="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs">Fix Requested</span>
-                      <Button
-                        className="ml-2 bg-orange-600 text-white px-3 py-0.5 rounded-full text-xs font-semibold"
-                        onClick={async () => {
-                          setShowSubmissions(false); // Hide submissions section
-                          setSelectedPumpId(String(s.pump_id));
-                          setShift(s.shift_type);
-                          setReading({ opening: s.opening_reading, closing: s.closing_reading });
-                          // Mark as fixed in DB by clearing fix_reason and is_fixed, set to pending
-                          await supabase.from('shifts').update({ is_approved: false, fix_reason: null }).eq('id', s.id);
-                          // Refetch submissions
-                          if (!user) return;
-                          const { data, error } = await supabase
-                            .from('shifts')
-                            .select('*')
-                            .eq('attendant_id', user.id)
-                            .order('shift_date', { ascending: false });
-                          if (!error && data) {
-                            setSubmissions(data);
-                            setFixNotifications(data.filter((row: any) => row.fix_reason && !row.is_approved));
-                          }
-                        }}
+              ) : (
+                <div className="space-y-3">
+                  {Object.entries(
+                    submissions.reduce<{ [date: string]: any[] }>((acc, s) => {
+                      (acc[s.shift_date] = acc[s.shift_date] || []).push(s);
+                      return acc;
+                    }, {})
+                  ).map(([date, records]) => (
+                    <div key={date} className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
+                      <button
+                        className="w-full text-left px-5 py-3 font-bold text-lg flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 transition-all"
+                        onClick={() => setExpandedDates((prev) => ({ ...prev, [date]: !prev[date] }))}
                       >
-                        Fix
-                      </Button>
-                    </>
-                  ) : (
-                    <span className="bg-gray-400 text-white px-2 py-0.5 rounded-full text-xs">Pending</span>
-                  )}
+                        <span className="flex items-center gap-2">
+                          <span className="text-2xl">📅</span>
+                          {date}
+                        </span>
+                        <span className="text-gray-500">{expandedDates[date] ? '▲' : '▼'}</span>
+                      </button>
+                      {expandedDates[date] && (
+                        <div className="p-4 space-y-3">
+                          {(records as any[]).map((s: any) => {
+                            const pumpName = pumps.find(p => String(p.id) === String(s.pump_id))?.name || s.pump_id;
+                            return (
+                              <div
+                                key={s.id}
+                                className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-200 pb-3 last:border-0"
+                              >
+                                <div className="flex-1">
+                                  <div className="font-semibold text-gray-900 flex items-center gap-2">
+                                    <span className="text-xl">⛽</span>
+                                    {pumpName} • {s.shift_type === 'day' ? '☀️ Day' : '🌙 Night'}
+                                  </div>
+                                  <div className="text-sm text-gray-600 mt-1">
+                                    Volume: <strong>{(s.closing_reading - s.opening_reading).toLocaleString()}L</strong>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                                  {s.is_approved ? (
+                                    <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-md">✅ Authorised</span>
+                                  ) : s.fix_reason && !s.is_approved ? (
+                                    <>
+                                      <span className="bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-md">🔧 Fix Requested</span>
+                                      <Button
+                                        className="bg-white/70 hover:bg-white/90 hover:scale-[1.02] text-gray-900 px-4 py-1 rounded-xl text-sm font-semibold shadow-sm border border-gray-300 transition-all duration-200 active:scale-[0.98]"
+                                        onClick={async () => {
+                                          setShowSubmissions(false);
+                                          setSelectedPumpId(String(s.pump_id));
+                                          setShift(s.shift_type);
+                                          setReading({ opening: s.opening_reading, closing: s.closing_reading });
+                                          await supabase.from('shifts').update({ is_approved: false, fix_reason: null }).eq('id', s.id);
+                                          if (!user) return;
+                                          const { data, error } = await supabase
+                                            .from('shifts')
+                                            .select('*')
+                                            .eq('attendant_id', user.id)
+                                            .order('shift_date', { ascending: false });
+                                          if (!error && data) {
+                                            setSubmissions(data);
+                                            setFixNotifications(data.filter((row: any) => row.fix_reason && !row.is_approved));
+                                          }
+                                        }}
+                                      >
+                                        Fix Now
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <span className="bg-gray-400 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-md">⏳ Pending</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  ))}
-  {submissions.length === 0 && (
-    <div className="text-gray-500 text-sm">No submissions yet.</div>
-  )}
-</div>
-)}
+              )}
+            </div>
+          </div>
+        )}
 
 
 
