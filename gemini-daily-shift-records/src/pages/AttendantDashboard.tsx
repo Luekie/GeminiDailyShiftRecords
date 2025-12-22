@@ -1,3 +1,4 @@
+// Fixed TypeScript errors - removed unused variables
 import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
