@@ -99,10 +99,10 @@ const COLORS = [
   '#5856d6', '#5ac8fa', '#af52de', '#ffcc00'
 ];
 
-// Compute submissions and pumps from records
-const submissions = records;
-const pumps = Array.from(new Set(records.map((rec) => rec.pump_id)));
-const submittedPumps = new Set(submissions.map((sub: any) => sub.pump_id));
+// Compute submissions and pumps from records safely
+const submissions = records || [];
+const pumps = Array.from(new Set(submissions.map((rec) => rec.pump_id).filter(Boolean)));
+const submittedPumps = new Set(submissions.map((sub: any) => sub.pump_id).filter(Boolean));
 const completionPercent = pumps.length > 0 ? (submittedPumps.size / pumps.length) * 100 : 0;
 
   useEffect(() => {
@@ -153,15 +153,16 @@ const handleLogout = async () => {
   setLocation("/");
 };
 
-// Pie chart data
-const volumeData = submissions.map((sub: any) => ({
+// Pie chart data - safely handle empty submissions
+const volumeData = submissions.length > 0 ? submissions.map((sub: any) => ({
   name: `${pumpMap[sub.pump_id] ?? sub.pump_id} - ${sub.attendant?.username ?? sub.attendant_id}`,
-  value: Number(sub.closing_reading ?? sub.closing) - Number(sub.opening_reading ?? sub.opening),
-}));
-const priceData = submissions.map((sub: any) => ({
+  value: Number(sub.closing_reading ?? sub.closing ?? 0) - Number(sub.opening_reading ?? sub.opening ?? 0),
+})).filter(item => item.value > 0) : [];
+
+const priceData = submissions.length > 0 ? submissions.map((sub: any) => ({
   name: `${pumpMap[sub.pump_id] ?? sub.pump_id} - ${sub.attendant?.username ?? sub.attendant_id}`,
   value: Number(sub.cash_received ?? sub.cash ?? 0) + Number(sub.prepayment_received ?? sub.prepaid ?? 0) + Number(sub.credit_received ?? sub.credit ?? 0),
-}));
+})).filter(item => item.value > 0) : [];
 
   // Filtered records by attendant
   const filteredRecords = selectedAttendant
