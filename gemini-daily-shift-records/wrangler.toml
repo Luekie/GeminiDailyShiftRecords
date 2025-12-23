@@ -1,0 +1,8 @@
+name = "geminidailyshiftrecords"
+compatibility_date = "2025-12-22"
+
+[env.production]
+name = "geminidailyshiftrecords"
+
+# Pages configuration
+pages_build_output_dir = "dist"
