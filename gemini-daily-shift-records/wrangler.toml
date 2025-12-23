@@ -1,8 +1,10 @@
 name = "geminidailyshiftrecords"
 compatibility_date = "2025-12-22"
+pages_build_output_dir = "dist"
+
+[build]
+command = "npm run build"
+cwd = "."
 
 [env.production]
 name = "geminidailyshiftrecords"
-
-# Pages configuration
-pages_build_output_dir = "dist"
