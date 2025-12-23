@@ -315,8 +315,42 @@ export default function LoginPage() {
           </div>
           
           {error && (
-            <div className="text-red-400 mb-4 text-sm text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20">
-              {error}
+            <div className={cn(
+              "mb-4 text-sm text-center p-3 rounded-lg border",
+              error.includes('Connection failed') || error.includes('internet connection')
+                ? "text-orange-400 bg-orange-500/10 border-orange-500/20" // Network errors in orange
+                : error.includes('Invalid username') || error.includes('Invalid credentials')
+                ? "text-red-400 bg-red-500/10 border-red-500/20" // Credential errors in red
+                : "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" // Other errors in yellow
+            )}>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                {error.includes('Connection failed') ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                ) : error.includes('Invalid username') ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                <span>{error}</span>
+              </div>
+              {error.includes('Connection failed') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError("");
+                    handleLogin();
+                  }}
+                  className="text-xs px-3 py-1 rounded-md bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/30 transition-colors"
+                >
+                  Try Again
+                </button>
+              )}
             </div>
           )}
           
