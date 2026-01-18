@@ -42,7 +42,7 @@ export default function LoginPage() {
       } else {
         if (user.role === 'attendant') setLocation('/attendant');
         else if (user.role === 'supervisor') setLocation('/supervisor');
-        else if (user.role === 'manager') setLocation('/manager');
+        else if (user.role === 'manager') setLocation('/manager-enhanced');
       }
     }
   }, [user, setLocation]);
