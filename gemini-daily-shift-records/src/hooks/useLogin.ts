@@ -8,56 +8,86 @@ export function useLogin() {
   const setUser = useSetAtom(userAtom);
 
   return useMutation({
-    mutationFn: async ({ username, password, passwordField = 'password' }: { username: string; password: string; passwordField?: string }) => {
+    mutationFn: async ({ username, password }: { username: string; password: string }) => {
       try {
-        // Use the correct password field for the query
-        const { data, error } = await supabase
+        // First, try to find the user by username to get their email
+        const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("*")
+          .select("id, username, email, role")
           .eq("username", username)
-          .eq(passwordField, password)
           .single();
 
-        // Handle different types of errors
-        if (error) {
-          // Network/connection errors
-          if (error.message?.includes('fetch') || 
-              error.message?.includes('network') || 
-              error.message?.includes('Failed to fetch') ||
-              error.code === 'PGRST301' || // Connection error
-              error.code === 'PGRST116') { // Connection timeout
-            throw new Error("Connection failed. Please check your internet connection and try again.");
-          }
-          
-          // No rows returned (invalid credentials)
-          if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
-            throw new Error("Invalid username or password. Please check your credentials and try again.");
-          }
-          
-          // Other database errors
-          throw new Error(`Login failed: ${error.message || 'Unknown error occurred'}`);
+        let email = username;
+        
+        // If we found a user by username, use their email for auth
+        if (userData && !userError) {
+          email = userData.email || username;
         }
-
-        if (!data) {
+        
+        // If username lookup failed and username doesn't look like email, 
+        // it might be an invalid username
+        if (userError && !username.includes('@')) {
           throw new Error("Invalid username or password. Please check your credentials and try again.");
         }
 
-        return data;
+        console.log(`Attempting Supabase Auth login for: ${email}`);
+
+        // Try to sign in with Supabase Auth using email/password
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
+
+        if (authError) {
+          console.error("Supabase Auth failed:", authError.message);
+          // Handle different auth error types
+          if (authError.message?.includes('Invalid login credentials')) {
+            throw new Error("Invalid username or password. Please check your credentials and try again.");
+          }
+          if (authError.message?.includes('Email not confirmed')) {
+            throw new Error("Please check your email and confirm your account before logging in.");
+          }
+          if (authError.message?.includes('network') || authError.message?.includes('fetch')) {
+            throw new Error("Connection failed. Please check your internet connection and try again.");
+          }
+          throw new Error(`Login failed: ${authError.message}`);
+        }
+
+        if (!authData.user) {
+          throw new Error("Invalid username or password. Please check your credentials and try again.");
+        }
+
+        // Get the user profile data from your users table
+        const { data: profileData, error: profileError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", authData.user.id)
+          .single();
+
+        if (profileError || !profileData) {
+          // Fallback: Try by username for legacy users
+          const { data: profileByUsername, error: errorByUsername } = await supabase
+            .from("users")
+            .select("*")
+            .eq("username", username)
+            .single();
+          
+          if (profileByUsername) {
+            return profileByUsername;
+          }
+          
+          throw new Error("User profile not found. Please contact your administrator.");
+        }
+
+        return profileData;
       } catch (err: any) {
         // Handle network errors that might not be caught above
         if (err.name === 'TypeError' && err.message?.includes('fetch')) {
           throw new Error("Connection failed. Please check your internet connection and try again.");
         }
         
-        // Re-throw our custom errors
-        if (err.message?.includes('Connection failed') || 
-            err.message?.includes('Invalid username') ||
-            err.message?.includes('Login failed:')) {
-          throw err;
-        }
-        
-        // Generic fallback for unexpected errors
-        throw new Error("Login failed. Please try again or contact support if the problem persists.");
+        // Re-throw our custom errors (don't modify them)
+        throw err;
       }
     },
     onSuccess: (data) => setUser(data),

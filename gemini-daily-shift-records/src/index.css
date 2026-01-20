@@ -116,11 +116,26 @@
   }
   
   body {
-    background-image: url('/puma.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed; 
-   @apply text-black font-sans;
+    @apply text-black font-sans;
+    /* Fallback gradient background */
+    background: linear-gradient(135deg, 
+      #667eea 0%, 
+      #764ba2 25%, 
+      #f093fb 50%, 
+      #f5576c 75%, 
+      #4facfe 100%
+    );
+    min-height: 100vh;
+  }
+  
+  /* Dark mode fallback */
+  .dark body {
+    background: linear-gradient(135deg, 
+      #1a1a2e 0%, 
+      #16213e 25%, 
+      #0f3460 50%, 
+      #533483 75%, 
+      #1e3c72 100%
+    );
   }
 }

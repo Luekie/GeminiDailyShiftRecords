@@ -1,20 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+
 import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Award, 
-  AlertTriangle, 
-  Users, 
-  Target,
-  Calendar,
-  BarChart3
+import {
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip } from 'recharts';
 
 interface AttendantPerformance {
   id: string;
@@ -40,7 +35,7 @@ interface PerformanceAnalyticsProps {
 export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalyticsProps) {
   const [attendantPerformance, setAttendantPerformance] = useState<AttendantPerformance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [selectedMetric, setSelectedMetric] = useState('accuracy');
   const [trendData, setTrendData] = useState<any[]>([]);
 
@@ -51,43 +46,47 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
   const fetchPerformanceData = async () => {
     setLoading(true);
     try {
-      // Calculate date range based on selected period
-      const endDate = new Date();
-      const startDate = new Date();
-      
-      switch (selectedPeriod) {
-        case 'week':
-          startDate.setDate(endDate.getDate() - 7);
-          break;
-        case 'month':
-          startDate.setMonth(endDate.getMonth() - 1);
-          break;
-        case 'quarter':
-          startDate.setMonth(endDate.getMonth() - 3);
-          break;
-        default:
-          startDate.setDate(endDate.getDate() - 7);
-      }
-
-      // Fetch shifts data with attendant info
-      const { data: shiftsData, error } = await supabase
+      // Build query
+      let query = supabase
         .from('shifts')
         .select(`
           *,
           attendant:attendant_id(id, username)
-        `)
-        .gte('shift_date', startDate.toISOString().slice(0, 10))
-        .lte('shift_date', endDate.toISOString().slice(0, 10));
+        `);
+
+      // Only apply date filter if not 'all'
+      if (selectedPeriod !== 'all') {
+        const endDate = new Date();
+        const startDate = new Date();
+
+        switch (selectedPeriod) {
+          case 'week':
+            startDate.setDate(endDate.getDate() - 7);
+            break;
+          case 'month':
+            startDate.setMonth(endDate.getMonth() - 1);
+            break;
+          case 'quarter':
+            startDate.setMonth(endDate.getMonth() - 3);
+            break;
+        }
+
+        query = query
+          .gte('shift_date', startDate.toISOString().slice(0, 10))
+          .lte('shift_date', endDate.toISOString().slice(0, 10));
+      }
+
+      const { data: shiftsData, error } = await query;
 
       if (error) throw error;
 
       // Process performance data
       const performanceMap = new Map<string, any>();
-      
+
       shiftsData?.forEach(shift => {
         const attendantId = shift.attendant_id;
         const attendantName = shift.attendant?.username || 'Unknown';
-        
+
         if (!performanceMap.has(attendantId)) {
           performanceMap.set(attendantId, {
             id: attendantId,
@@ -107,25 +106,21 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
 
         const attendant = performanceMap.get(attendantId);
         attendant.totalShifts++;
-        
-        // Count approval status
-        switch (shift.approval_status) {
-          case 'approved':
-            attendant.approvedShifts++;
-            break;
-          case 'rejected':
-            attendant.rejectedShifts++;
-            break;
-          case 'pending':
-            attendant.pendingShifts++;
-            break;
+
+        // Count approval status based on existing fields
+        if (shift.is_approved) {
+          attendant.approvedShifts++;
+        } else if (shift.fix_reason) {
+          attendant.rejectedShifts++;
+        } else {
+          attendant.pendingShifts++;
         }
 
         // Calculate revenue and volume
-        const revenue = (shift.cash_received || 0) + (shift.prepayment_received || 0) + 
-                       (shift.credit_received || 0) + (shift.fuel_card_received || 0) + 
-                       (shift.fdh_card_received || 0) + (shift.national_bank_card_received || 0) + 
-                       (shift.mo_payment_received || 0);
+        const revenue = (shift.cash_received || 0) + (shift.prepayment_received || 0) +
+          (shift.credit_received || 0) + (shift.fuel_card_received || 0) +
+          (shift.fdh_card_received || 0) + (shift.national_bank_card_received || 0) +
+          (shift.mo_payment_received || 0);
         const volume = (shift.closing_reading || 0) - (shift.opening_reading || 0);
         const expected = volume * (shift.fuel_price || 0);
         const variance = revenue - expected;
@@ -140,10 +135,10 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
         }
 
         // Check for late submissions (submitted more than 2 hours after shift end)
-        const submittedAt = new Date(shift.submitted_at || shift.created_at);
+        const submittedAt = new Date(shift.created_at);
         const shiftDate = new Date(shift.shift_date);
         const expectedSubmissionTime = new Date(shiftDate);
-        
+
         if (shift.shift_type === 'day') {
           expectedSubmissionTime.setHours(18, 0, 0); // 6 PM
         } else {
@@ -159,9 +154,9 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
       });
 
       // Convert to array and calculate derived metrics
-      const performanceArray: AttendantPerformance[] = Array.from(performanceMap.values()).map((attendant, index) => {
+      const performanceArray: AttendantPerformance[] = Array.from(performanceMap.values()).map((attendant, _index) => {
         const averageVariance = attendant.totalShifts > 0 ? attendant.totalVariance / attendant.totalShifts : 0;
-        const accuracyScore = attendant.totalShifts > 0 ? 
+        const accuracyScore = attendant.totalShifts > 0 ?
           Math.max(0, 100 - (Math.abs(averageVariance) / (attendant.totalRevenue / attendant.totalShifts) * 100)) : 100;
 
         return {
@@ -204,20 +199,20 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
 
   const calculateTrend = (shifts: any[]) => {
     if (shifts.length < 2) return 'stable';
-    
+
     // Sort shifts by date
     const sortedShifts = shifts.sort((a, b) => new Date(a.shift_date).getTime() - new Date(b.shift_date).getTime());
-    
+
     // Compare first half vs second half performance
     const midPoint = Math.floor(sortedShifts.length / 2);
     const firstHalf = sortedShifts.slice(0, midPoint);
     const secondHalf = sortedShifts.slice(midPoint);
-    
+
     const firstHalfAccuracy = calculateAccuracy(firstHalf);
     const secondHalfAccuracy = calculateAccuracy(secondHalf);
-    
+
     const difference = secondHalfAccuracy - firstHalfAccuracy;
-    
+
     if (difference > 2) return 'up';
     if (difference < -2) return 'down';
     return 'stable';
@@ -225,23 +220,23 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
 
   const calculateAccuracy = (shifts: any[]) => {
     if (shifts.length === 0) return 100;
-    
+
     let totalVariance = 0;
     let totalRevenue = 0;
-    
+
     shifts.forEach(shift => {
-      const revenue = (shift.cash_received || 0) + (shift.prepayment_received || 0) + 
-                     (shift.credit_received || 0) + (shift.fuel_card_received || 0) + 
-                     (shift.fdh_card_received || 0) + (shift.national_bank_card_received || 0) + 
-                     (shift.mo_payment_received || 0);
+      const revenue = (shift.cash_received || 0) + (shift.prepayment_received || 0) +
+        (shift.credit_received || 0) + (shift.fuel_card_received || 0) +
+        (shift.fdh_card_received || 0) + (shift.national_bank_card_received || 0) +
+        (shift.mo_payment_received || 0);
       const volume = (shift.closing_reading || 0) - (shift.opening_reading || 0);
       const expected = volume * (shift.fuel_price || 0);
       const variance = Math.abs(revenue - expected);
-      
+
       totalVariance += variance;
       totalRevenue += expected;
     });
-    
+
     if (totalRevenue === 0) return 100;
     return Math.max(0, 100 - (totalVariance / totalRevenue * 100));
   };
@@ -255,7 +250,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
       volume: attendant.totalVolume,
       shifts: attendant.totalShifts
     }));
-    
+
     setTrendData(trendData);
   };
 
@@ -281,29 +276,30 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
         <h2 className={cn("text-2xl font-bold", isDarkMode ? "text-white" : "text-gray-900")}>
           Performance Analytics
         </h2>
-        
+
         <div className="flex gap-3">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className={cn(
               "w-32 rounded-xl border backdrop-blur-sm",
-              isDarkMode 
-                ? "bg-white/10 border-white/20 text-white" 
+              isDarkMode
+                ? "bg-white/10 border-white/20 text-white"
                 : "bg-white/30 border-white/40 text-gray-900"
             )}>
-              {selectedPeriod === 'week' ? 'This Week' : selectedPeriod === 'month' ? 'This Month' : 'This Quarter'}
+              {selectedPeriod === 'week' ? 'This Week' : selectedPeriod === 'month' ? 'This Month' : selectedPeriod === 'quarter' ? 'This Quarter' : 'All Time'}
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
               <SelectItem value="week">This Week</SelectItem>
               <SelectItem value="month">This Month</SelectItem>
               <SelectItem value="quarter">This Quarter</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Select value={selectedMetric} onValueChange={setSelectedMetric}>
             <SelectTrigger className={cn(
               "w-32 rounded-xl border backdrop-blur-sm",
-              isDarkMode 
-                ? "bg-white/10 border-white/20 text-white" 
+              isDarkMode
+                ? "bg-white/10 border-white/20 text-white"
                 : "bg-white/30 border-white/40 text-gray-900"
             )}>
               {selectedMetric === 'accuracy' ? 'Accuracy' : selectedMetric === 'revenue' ? 'Revenue' : selectedMetric === 'volume' ? 'Volume' : 'Shifts'}
@@ -364,7 +360,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
                   dataKey="value"
                   label={({ name, value }) => `${name}: ${value}`}
                 >
-                  {attendantPerformance.map((entry, index) => (
+                  {attendantPerformance.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -384,7 +380,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
           <h3 className={cn("text-lg font-bold mb-6", isDarkMode ? "text-white" : "text-gray-900")}>
             Attendant Performance Leaderboard
           </h3>
-          
+
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -393,7 +389,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
             <div className="space-y-4">
               {attendantPerformance.map((attendant, index) => {
                 const badge = getPerformanceBadge(attendant.accuracyScore);
-                
+
                 return (
                   <div key={attendant.id} className={cn(
                     "flex items-center justify-between p-4 rounded-xl border transition-all hover:shadow-md",
@@ -404,9 +400,9 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
                         index === 0 ? "bg-yellow-500/20 text-yellow-600" :
-                        index === 1 ? "bg-gray-400/20 text-gray-600" :
-                        index === 2 ? "bg-orange-500/20 text-orange-600" :
-                        "bg-blue-500/20 text-blue-600"
+                          index === 1 ? "bg-gray-400/20 text-gray-600" :
+                            index === 2 ? "bg-orange-500/20 text-orange-600" :
+                              "bg-blue-500/20 text-blue-600"
                       )}>
                         {index < 3 ? (
                           index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'
@@ -414,7 +410,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
                           attendant.rank
                         )}
                       </div>
-                      
+
                       {/* Attendant Info */}
                       <div>
                         <div className="flex items-center gap-2">
@@ -432,7 +428,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Performance Metrics */}
                     <div className="flex items-center gap-6">
                       <div className="text-center">
@@ -443,7 +439,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
                           Accuracy
                         </div>
                       </div>
-                      
+
                       <div className="text-center">
                         <div className={cn("text-lg font-bold", isDarkMode ? "text-white" : "text-gray-900")}>
                           {attendant.totalRevenue.toLocaleString()}
@@ -452,7 +448,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
                           Revenue
                         </div>
                       </div>
-                      
+
                       <div className="text-center">
                         <div className={cn("text-lg font-bold", isDarkMode ? "text-white" : "text-gray-900")}>
                           {attendant.totalVolume.toLocaleString()}L
@@ -461,7 +457,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
                           Volume
                         </div>
                       </div>
-                      
+
                       {attendant.criticalAlerts > 0 && (
                         <div className="flex items-center gap-1 text-red-500">
                           <AlertTriangle className="w-4 h-4" />

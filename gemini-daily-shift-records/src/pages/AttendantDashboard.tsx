@@ -499,8 +499,14 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
             ? "bg-white/5 border-white/10 text-white" 
             : "bg-white/20 border-white/30 text-gray-900"
         )}>
-          <h2 className="text-xl font-bold">
-            👋 Welcome, {user?.username || 'Guest'}!
+          <h2 className="text-xl font-bold text-black">
+            {(() => {
+              const hour = new Date().getHours();
+              let greeting = "Good Evening";
+              if (hour < 12) greeting = "Good Morning";
+              else if (hour < 17) greeting = "Good Afternoon";
+              return `${greeting}, ${user?.username || 'Guest'}! 👋`;
+            })()}
           </h2>
 
           <div className="flex items-center gap-3">

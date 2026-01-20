@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '../store/auth';
 import { cn } from '@/lib/utils';
-import { 
-  AlertTriangle, 
-  Clock, 
-  TrendingDown, 
-  Users, 
+import {
+  AlertTriangle,
+  Clock,
+  TrendingDown,
+  Users,
   X,
   Eye,
   CheckCircle,
@@ -41,17 +41,17 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
   useEffect(() => {
     if (user) {
       fetchAlerts();
-      
+
       // Set up real-time subscription for new alerts
       const subscription = supabase
         .channel('alerts')
-        .on('postgres_changes', 
-          { 
-            event: 'INSERT', 
-            schema: 'public', 
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
             table: 'alerts',
             filter: `user_id=eq.${user.id}`
-          }, 
+          },
           (payload) => {
             setAlerts(prev => [payload.new as Alert, ...prev]);
           }
@@ -66,7 +66,7 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
 
   const fetchAlerts = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -92,8 +92,8 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
         .eq('id', alertId);
 
       if (error) throw error;
-      
-      setAlerts(prev => prev.map(alert => 
+
+      setAlerts(prev => prev.map(alert =>
         alert.id === alertId ? { ...alert, is_read: true } : alert
       ));
     } catch (error) {
@@ -109,7 +109,7 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
         .eq('id', alertId);
 
       if (error) throw error;
-      
+
       setAlerts(prev => prev.filter(alert => alert.id !== alertId));
     } catch (error) {
       console.error('Error dismissing alert:', error);
@@ -119,7 +119,7 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
   const markAllAsRead = async () => {
     try {
       const unreadAlerts = alerts.filter(alert => !alert.is_read);
-      
+
       if (unreadAlerts.length === 0) return;
 
       const { error } = await supabase
@@ -128,7 +128,7 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
         .in('id', unreadAlerts.map(alert => alert.id));
 
       if (error) throw error;
-      
+
       setAlerts(prev => prev.map(alert => ({ ...alert, is_read: true })));
     } catch (error) {
       console.error('Error marking all alerts as read:', error);
@@ -216,7 +216,7 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
               </span>
             )}
           </div>
-          
+
           <div className="flex gap-2">
             {unreadCount > 0 && (
               <Button
@@ -267,7 +267,7 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
                       {getSeverityIcon(alert.severity)}
                       {getAlertTypeIcon(alert.type)}
                     </div>
-                    
+
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className={cn(
@@ -280,29 +280,29 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
                           <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                         )}
                       </div>
-                      
+
                       <p className={cn(
                         "text-sm mb-2",
                         isDarkMode ? "text-gray-300" : "text-gray-700"
                       )}>
                         {alert.message}
                       </p>
-                      
+
                       <div className="flex items-center gap-4 text-xs">
                         <span className={cn(
                           "capitalize px-2 py-1 rounded-lg font-semibold",
                           alert.severity === 'critical' ? "bg-red-500/20 text-red-600" :
-                          alert.severity === 'error' ? "bg-red-400/20 text-red-500" :
-                          alert.severity === 'warning' ? "bg-yellow-500/20 text-yellow-600" :
-                          "bg-blue-500/20 text-blue-600"
+                            alert.severity === 'error' ? "bg-red-400/20 text-red-500" :
+                              alert.severity === 'warning' ? "bg-yellow-500/20 text-yellow-600" :
+                                "bg-blue-500/20 text-blue-600"
                         )}>
                           {alert.severity}
                         </span>
-                        
+
                         <span className={cn("", isDarkMode ? "text-gray-400" : "text-gray-600")}>
                           {new Date(alert.created_at).toLocaleString()}
                         </span>
-                        
+
                         {alert.expires_at && (
                           <span className={cn("", isDarkMode ? "text-gray-400" : "text-gray-600")}>
                             Expires: {new Date(alert.expires_at).toLocaleString()}
@@ -311,7 +311,7 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 ml-4">
                     {!alert.is_read && (
                       <Button
@@ -322,7 +322,7 @@ export default function AlertSystem({ isDarkMode }: AlertSystemProps) {
                         <Eye className="w-3 h-3" />
                       </Button>
                     )}
-                    
+
                     <Button
                       size="sm"
                       onClick={() => dismissAlert(alert.id)}
