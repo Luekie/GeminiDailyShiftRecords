@@ -66,7 +66,7 @@ export function useLogin() {
 
         if (profileError || !profileData) {
           // Fallback: Try by username for legacy users
-          const { data: profileByUsername, error: errorByUsername } = await supabase
+          const { data: profileByUsername } = await supabase
             .from("users")
             .select("*")
             .eq("username", username)

@@ -268,7 +268,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
 
       showNotification('User updated successfully', 'success');
       setEditingUser(null);
-      setFormData({ email: '', username: '', role: 'attendant', sendInvite: true });
+      setFormData({ email: '', username: '', role: 'attendant', sendInvite: true, password: '' });
       fetchUsers(); // Refresh list
 
     } catch (error: any) {
@@ -692,7 +692,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                     onClick={() => {
                       setShowCreateModal(false);
                       setEditingUser(null);
-                      setFormData({ email: '', username: '', role: 'attendant', sendInvite: true });
+                      setFormData({ email: '', username: '', role: 'attendant', sendInvite: true, password: '' });
                       setFormErrors({});
                     }}
                     title="Close this window without saving"

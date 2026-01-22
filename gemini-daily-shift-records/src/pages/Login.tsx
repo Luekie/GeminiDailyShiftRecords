@@ -55,7 +55,7 @@ export default function LoginPage() {
     console.log('Attempting login:', { username: trimmedUsername });
     try {
       // Use password_hash for Supabase query
-      await login.mutateAsync({ username: trimmedUsername, password: trimmedPassword, passwordField: 'password_hash' });
+      await login.mutateAsync({ username: trimmedUsername, password: trimmedPassword });
       // userAtom will be set by useLogin on success, triggering redirect above
     } catch (err: any) {
       setError(err.message || 'Login failed');
