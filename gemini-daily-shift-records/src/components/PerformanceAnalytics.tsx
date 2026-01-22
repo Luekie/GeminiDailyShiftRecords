@@ -154,7 +154,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
       });
 
       // Convert to array and calculate derived metrics
-      const performanceArray: AttendantPerformance[] = Array.from(performanceMap.values()).map((attendant, _index) => {
+      const performanceArray: AttendantPerformance[] = Array.from(performanceMap.values()).map((attendant) => {
         const averageVariance = attendant.totalShifts > 0 ? attendant.totalVariance / attendant.totalShifts : 0;
         const accuracyScore = attendant.totalShifts > 0 ?
           Math.max(0, 100 - (Math.abs(averageVariance) / (attendant.totalRevenue / attendant.totalShifts) * 100)) : 100;
@@ -360,7 +360,7 @@ export default function PerformanceAnalytics({ isDarkMode }: PerformanceAnalytic
                   dataKey="value"
                   label={({ name, value }) => `${name}: ${value}`}
                 >
-                  {attendantPerformance.map((_entry, index) => (
+                  {attendantPerformance.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

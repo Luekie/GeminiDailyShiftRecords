@@ -89,7 +89,6 @@ export default function EnhancedManagerDashboard() {
 
   // Profile form states
   const [newUsername, setNewUsername] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
@@ -189,7 +188,15 @@ export default function EnhancedManagerDashboard() {
         const variance = Math.abs(expected - actual);
         return variance > expected * 0.05; // 5% variance threshold
       }).length,
-      attendantPerformance: {} as Record<string, any>,
+      attendantPerformance: {} as Record<string, {
+        name: string;
+        shifts: number;
+        variance: number;
+        accuracy: number;
+        approved: number;
+        pending: number;
+        rejected: number;
+      }>,
       missingShifts: calculateMissingShifts(shiftsData)
     };
 
@@ -420,7 +427,6 @@ export default function EnhancedManagerDashboard() {
         showNotification('Profile updated successfully', 'success');
         setShowProfileModal(false);
         setNewUsername('');
-        setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
 
