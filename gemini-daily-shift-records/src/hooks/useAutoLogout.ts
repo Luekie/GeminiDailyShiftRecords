@@ -63,27 +63,6 @@ export function useAutoLogout() {
     }, 5000);
   };
 
-  const showWarningNotification = () => {
-    const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 p-4 rounded-xl shadow-lg z-50 bg-yellow-500 text-white max-w-sm';
-    notification.innerHTML = `
-      <div class="flex items-center gap-3">
-        <div class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-          ⚠️
-        </div>
-        <div>
-          <div class="font-semibold">Session Warning</div>
-          <div class="text-sm opacity-90">You'll be logged out in 30 seconds due to inactivity</div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      notification.remove();
-    }, 30000);
-  };
-
   const resetTimer = useCallback(() => {
     lastActivityRef.current = Date.now();
     
