@@ -11,6 +11,7 @@ import { fetchShiftsForDate } from "@/lib/useFetchShiftsForDate";
 import { cn } from "@/lib/utils";
 import { useTheme } from '../contexts/ThemeContext';
 import { GlobalBackground } from '../components/GlobalBackground';
+import { useAutoLogout } from '../hooks/useAutoLogout';
 
 
 const authoriseSubmission = async (id: string) => {
@@ -38,6 +39,9 @@ export default function SupervisorApproval() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { isDarkMode, toggleDarkMode } = useTheme();
+
+  // Auto-logout functionality
+  useAutoLogout();
 
   type Submission = {
     id: string;

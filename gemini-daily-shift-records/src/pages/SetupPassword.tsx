@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '../contexts/ThemeContext';
 import { GlobalBackground } from '../components/GlobalBackground';
@@ -20,6 +21,12 @@ import {
 export default function SetupPassword() {
   const [, setLocation] = useLocation();
   const { isDarkMode } = useTheme();
+  
+  // Profile fields
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | 'other' | 'prefer_not_to_say'>('prefer_not_to_say');
   
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -82,6 +89,27 @@ export default function SetupPassword() {
   const handleSetupPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate required fields
+    if (!firstName.trim()) {
+      setError('First name is required');
+      return;
+    }
+    
+    if (!lastName.trim()) {
+      setError('Last name is required');
+      return;
+    }
+    
+    if (!username.trim()) {
+      setError('Username is required');
+      return;
+    }
+    
+    if (username.length < 3) {
+      setError('Username must be at least 3 characters');
+      return;
+    }
+    
     if (!isPasswordStrong) {
       setError('Please ensure your password meets all requirements');
       return;
@@ -96,6 +124,19 @@ export default function SetupPassword() {
     setError('');
 
     try {
+      // Check if username is already taken
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('username')
+        .eq('username', username.trim())
+        .single();
+        
+      if (existingUser) {
+        setError('Username is already taken. Please choose another.');
+        setLoading(false);
+        return;
+      }
+
       // Update the user's password
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
@@ -103,8 +144,26 @@ export default function SetupPassword() {
 
       if (updateError) throw updateError;
 
+      // Get current user to update profile
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Update user profile in the users table
+        const { error: profileError } = await supabase
+          .from('users')
+          .update({
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            username: username.trim(),
+            gender: gender
+          })
+          .eq('id', user.id);
+
+        if (profileError) throw profileError;
+      }
+
       // Show success message
-      showNotification('Password set successfully! Redirecting to login...', 'success');
+      showNotification('Profile setup completed! Redirecting to login...', 'success');
       
       // Sign out and redirect to login
       setTimeout(async () => {
@@ -113,8 +172,8 @@ export default function SetupPassword() {
       }, 2000);
 
     } catch (error: any) {
-      console.error('Error setting password:', error);
-      setError(error.message || 'Failed to set password');
+      console.error('Error setting up profile:', error);
+      setError(error.message || 'Failed to set up profile');
     }
     
     setLoading(false);
@@ -167,10 +226,10 @@ export default function SetupPassword() {
                 <Lock className="w-8 h-8 text-blue-400" />
               </div>
               <h1 className={cn("text-2xl font-bold mb-2", isDarkMode ? "text-white" : "text-gray-900")}>
-                Set Up Your Password
+                Complete Your Profile
               </h1>
               <p className={cn("text-sm", isDarkMode ? "text-gray-300" : "text-gray-600")}>
-                Complete your account setup by creating a secure password
+                Set up your profile information and create a secure password
               </p>
             </div>
 
@@ -201,10 +260,98 @@ export default function SetupPassword() {
             )}
 
             <form onSubmit={handleSetupPassword} className="space-y-6">
+              {/* Profile Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                    First Name *
+                  </label>
+                  <Input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className={cn(
+                      "w-full rounded-xl border backdrop-blur-sm",
+                      isDarkMode 
+                        ? "bg-white/10 border-white/20 text-white" 
+                        : "bg-white/30 border-white/40 text-gray-900"
+                    )}
+                    placeholder="Enter your first name"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                    Last Name *
+                  </label>
+                  <Input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className={cn(
+                      "w-full rounded-xl border backdrop-blur-sm",
+                      isDarkMode 
+                        ? "bg-white/10 border-white/20 text-white" 
+                        : "bg-white/30 border-white/40 text-gray-900"
+                    )}
+                    placeholder="Enter your last name"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                  Username *
+                </label>
+                <Input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  className={cn(
+                    "w-full rounded-xl border backdrop-blur-sm",
+                    isDarkMode 
+                      ? "bg-white/10 border-white/20 text-white" 
+                      : "bg-white/30 border-white/40 text-gray-900"
+                  )}
+                  placeholder="Choose a username (lowercase, numbers, underscore only)"
+                  required
+                />
+                <p className={cn("text-xs mt-1", isDarkMode ? "text-gray-400" : "text-gray-600")}>
+                  This will be used for login. Minimum 3 characters.
+                </p>
+              </div>
+
+              <div>
+                <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                  Gender
+                </label>
+                <Select value={gender} onValueChange={(value: any) => setGender(value)}>
+                  <SelectTrigger className={cn(
+                    "w-full rounded-xl border backdrop-blur-sm",
+                    isDarkMode 
+                      ? "bg-white/10 border-white/20 text-white" 
+                      : "bg-white/30 border-white/40 text-gray-900"
+                  )}>
+                    {gender === 'male' ? 'Male' : 
+                     gender === 'female' ? 'Female' : 
+                     gender === 'other' ? 'Other' : 
+                     'Prefer not to say'}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Password Input */}
               <div>
                 <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                  New Password
+                  New Password *
                 </label>
                 <div className="relative">
                   <Input
@@ -310,10 +457,10 @@ export default function SetupPassword() {
                 {loading ? (
                   <div className="flex items-center gap-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Setting Password...
+                    Setting up Profile...
                   </div>
                 ) : (
-                  'Set Password & Continue'
+                  'Complete Profile Setup'
                 )}
               </Button>
             </form>

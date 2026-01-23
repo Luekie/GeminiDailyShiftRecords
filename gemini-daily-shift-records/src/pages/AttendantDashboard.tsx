@@ -12,6 +12,7 @@ import { useLocation } from 'wouter';
 import { cn } from '@/lib/utils';
 import { useTheme } from '../contexts/ThemeContext';
 import { GlobalBackground } from '../components/GlobalBackground';
+import { useAutoLogout } from '../hooks/useAutoLogout';
 import { Moon, Sun } from 'lucide-react';
   
 
@@ -24,6 +25,9 @@ interface PaymentEntry {
 
 const AttendantDashboard = () => {
   const { isDarkMode, toggleDarkMode } = useTheme();
+  
+  // Auto-logout functionality
+  useAutoLogout();
   // --- Multi-pump state and handlers ---
   type PumpReading = { pumpId: string; opening: number; closing: number };
   const [pumpReadings, setPumpReadings] = useState<PumpReading[]>([]);

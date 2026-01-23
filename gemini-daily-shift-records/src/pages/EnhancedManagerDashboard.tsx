@@ -9,6 +9,7 @@ import { userAtom } from '../store/auth';
 import { useLocation } from 'wouter';
 import { useTheme } from '../contexts/ThemeContext';
 import { GlobalBackground } from '../components/GlobalBackground';
+import { useAutoLogout } from '../hooks/useAutoLogout';
 import UserManagement from '../components/UserManagement';
 import PerformanceAnalytics from '../components/PerformanceAnalytics';
 import AlertSystem from '../components/AlertSystem';
@@ -63,6 +64,9 @@ export default function EnhancedManagerDashboard() {
   const user = useAtomValue(userAtom);
   const [, setLocation] = useLocation();
   const { isDarkMode, toggleDarkMode } = useTheme();
+  
+  // Auto-logout functionality
+  useAutoLogout();
 
   // State management
   const [shifts, setShifts] = useState<ShiftRecord[]>([]);

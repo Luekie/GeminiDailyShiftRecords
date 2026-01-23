@@ -24,6 +24,9 @@ interface User {
   id: string;
   email: string;
   username: string;
+  first_name?: string;
+  last_name?: string;
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   role: 'attendant' | 'supervisor' | 'manager';
   status: 'active' | 'suspended' | 'pending';
   created_at: string;
@@ -477,9 +480,15 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                     <td className="p-3">
                       <div>
                         <div className={cn("font-semibold", isDarkMode ? "text-white" : "text-gray-900")}>
-                          {user.username}
+                          {user.first_name && user.last_name 
+                            ? `${user.first_name} ${user.last_name}`
+                            : user.username
+                          }
                         </div>
                         <div className={cn("text-sm", isDarkMode ? "text-gray-400" : "text-gray-600")}>
+                          @{user.username}
+                        </div>
+                        <div className={cn("text-xs", isDarkMode ? "text-gray-500" : "text-gray-500")}>
                           {user.email}
                         </div>
                       </div>
