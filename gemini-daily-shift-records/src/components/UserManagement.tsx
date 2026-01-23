@@ -511,7 +511,8 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                               email: user.email,
                               username: user.username,
                               role: user.role,
-                              sendInvite: false
+                              sendInvite: false,
+                              password: ''
                             });
                           }}
                           title="Edit user details"
