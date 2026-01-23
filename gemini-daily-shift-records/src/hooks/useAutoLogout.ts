@@ -95,12 +95,7 @@ export function useAutoLogout() {
       clearTimeout(warningTimeoutRef.current);
     }
 
-    // Set warning timer (30 seconds before logout)
-    warningTimeoutRef.current = setTimeout(() => {
-      showWarningNotification();
-    }, INACTIVITY_TIMEOUT - 30000);
-
-    // Set logout timer
+    // Set logout timer (no warning timer)
     timeoutRef.current = setTimeout(() => {
       logout();
     }, INACTIVITY_TIMEOUT);
