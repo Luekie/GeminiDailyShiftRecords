@@ -482,7 +482,9 @@ export default function EnhancedManagerDashboard() {
             </div>
             <div>
               <div className="text-xl font-bold mb-1">
-                👋 {getGreeting()}, {user?.username || 'Manager'}!
+                👋 {getGreeting()}, {user?.first_name && user?.last_name 
+                  ? `${user.first_name} ${user.last_name}` 
+                  : user?.username || 'Manager'}!
               </div>
               <h1 className="text-2xl font-bold">Manager Dashboard</h1>
               <p className={cn("text-sm", isDarkMode ? "text-gray-300" : "text-gray-600")}>

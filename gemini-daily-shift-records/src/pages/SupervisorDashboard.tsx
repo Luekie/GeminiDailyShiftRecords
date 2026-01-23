@@ -246,7 +246,17 @@ const [section, setSection] = useState<'authorised' | 'pending' | 'fix'>('pendin
             ? "bg-white/5 border-white/10 text-white" 
             : "bg-white/20 border-white/30 text-gray-900"
         )}>
-          <h2 className="text-2xl font-bold">👋 Welcome, Supervisor {user?.username || ""}!</h2>
+          <h2 className="text-2xl font-bold">
+            👋 {(() => {
+              const hour = new Date().getHours();
+              let greeting = "Good Evening";
+              if (hour < 12) greeting = "Good Morning";
+              else if (hour < 17) greeting = "Good Afternoon";
+              return `${greeting}, ${user?.first_name && user?.last_name 
+                ? `${user.first_name} ${user.last_name}` 
+                : user?.username || 'Supervisor'}!`;
+            })()}
+          </h2>
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"

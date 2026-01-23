@@ -509,7 +509,9 @@ function addEntry(list: PaymentEntry[], setList: Dispatch<SetStateAction<Payment
               let greeting = "Good Evening";
               if (hour < 12) greeting = "Good Morning";
               else if (hour < 17) greeting = "Good Afternoon";
-              return `${greeting}, ${user?.username || 'Guest'}! 👋`;
+              return `${greeting}, ${user?.first_name && user?.last_name 
+                ? `${user.first_name} ${user.last_name}` 
+                : user?.username || 'Guest'}! 👋`;
             })()}
           </h2>
 

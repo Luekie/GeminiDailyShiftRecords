@@ -2,10 +2,14 @@
 import { atom } from "jotai";
 
 export interface AuthUser {
-  must_change_password: any;
   id: string;
-  username: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  gender?: string;
+  email?: string;
   role: string;
+  must_change_password?: any;
 }
 
 export const userAtom = atom<AuthUser | null>(null); // Store logged-in user info

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,7 @@ interface UserManagementProps {
   isDarkMode: boolean;
 }
 
-export default function UserManagement({ isDarkMode }: UserManagementProps) {
+export default function UserManagement({ isDarkMode }: UserManagementProps): JSX.Element {
   const currentUser = useAtomValue(userAtom);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,10 +48,8 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
   // Form states
   const [formData, setFormData] = useState({
     email: '',
-    username: '',
     role: 'attendant' as 'attendant' | 'supervisor' | 'manager',
-    sendInvite: true,
-    password: ''
+    sendInvite: true
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -112,33 +110,20 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    // Email is optional - will auto-generate if missing
-    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Invalid email format';
     }
 
-    if (!formData.username.trim()) {
-      errors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
-      errors.username = 'Username must be at least 3 characters';
-    }
-
-    // Check if email or username already exists
+    // Check if email already exists
     const emailExists = users.some(user =>
-      formData.email.trim() &&
       user.email?.toLowerCase() === formData.email.toLowerCase() &&
-      (!editingUser || user.id !== editingUser.id)
-    );
-    const usernameExists = users.some(user =>
-      user.username.toLowerCase() === formData.username.toLowerCase() &&
       (!editingUser || user.id !== editingUser.id)
     );
 
     if (emailExists) {
       errors.email = 'Email already exists';
-    }
-    if (usernameExists) {
-      errors.username = 'Username already exists';
     }
 
     setFormErrors(errors);
@@ -162,68 +147,54 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
 
     setSubmitting(true);
     try {
-      // Auto-generate email if missing
-      const emailToUse = formData.email?.trim() || `${formData.username.replace(/\s+/g, '').toLowerCase()}@gemini.local`;
+      const emailToUse = formData.email.trim();
 
-      let authUser;
-
-      if (formData.sendInvite) {
-        // Create user and send invite in one step
-        const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-          emailToUse,
-          {
-            redirectTo: `${window.location.origin}/`,
-            data: {
-              username: formData.username,
-              role: formData.role
-            }
-          }
-        );
-
-        if (inviteError) throw inviteError;
-        authUser = inviteData.user;
-        showNotification('User created and invite email sent', 'success');
-      } else {
-        // Create user without invite (auto-confirm)
-        if (!formData.password && !formData.sendInvite) {
-          showNotification('Password is required for manual setup', 'error');
-          setSubmitting(false);
-          return;
-        }
-
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: emailToUse,
-          password: formData.password,
-          email_confirm: true,
-          user_metadata: {
-            username: formData.username,
+      // Create user and send invite
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        emailToUse,
+        {
+          redirectTo: `${window.location.origin}/`,
+          data: {
             role: formData.role
           }
-        });
+        }
+      );
 
-        if (authError) throw authError;
-        authUser = authData.user;
-        showNotification('User created successfully with manual password', 'success');
-      }
+      if (inviteError) throw inviteError;
+      
+      if (!inviteData.user) throw new Error('Failed to create auth user');
 
-      if (!authUser) throw new Error('Failed to create auth user');
-
-      // Create profile record in your users table
+      // Create profile record in your users table (without username - user will set it later)
       const { error: profileError } = await supabase
         .from('users')
         .insert({
-          id: authUser.id,
+          id: inviteData.user.id,
           email: emailToUse,
-          username: formData.username,
           role: formData.role,
-          status: formData.sendInvite ? 'pending' : 'active',
+          status: 'pending',
           created_at: new Date().toISOString()
         });
 
       if (profileError) throw profileError;
 
+      showNotification('User created and invite email sent', 'success');
+
       // Reset form and close modal
-      setFormData({ email: '', username: '', role: 'attendant', sendInvite: true, password: '' });
+      setFormData({ email: '', role: 'attendant', sendInvite: true });
+      setShowCreateModal(false);
+      fetchUsers(); // Refresh list
+      
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      showNotification(error.message || 'Failed to create user', 'error');
+    }
+    setSubmitting(false);
+  };
+
+      if (profileError) throw profileError;
+
+      // Reset form and close modal
+      setFormData({ email: '', role: 'attendant', sendInvite: true });
       setShowCreateModal(false);
       fetchUsers(); // Refresh list
 
@@ -271,7 +242,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
 
       showNotification('User updated successfully', 'success');
       setEditingUser(null);
-      setFormData({ email: '', username: '', role: 'attendant', sendInvite: true, password: '' });
+      setFormData({ email: '', role: 'attendant', sendInvite: true });
       fetchUsers(); // Refresh list
 
     } catch (error: any) {
@@ -618,26 +589,6 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
 
                 <div>
                   <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                    Username
-                  </label>
-                  <Input
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className={cn(
-                      "w-full rounded-xl",
-                      formErrors.username && "border-red-500",
-                      isDarkMode
-                        ? "bg-white/10 border-white/20 text-white"
-                        : "bg-white/50 border-gray-300 text-gray-900"
-                    )}
-                  />
-                  {formErrors.username && (
-                    <p className="text-red-500 text-sm mt-1">{formErrors.username}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Role
                   </label>
                   <Select value={formData.role} onValueChange={(value: any) => setFormData({ ...formData, role: value })}>
@@ -702,7 +653,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                     onClick={() => {
                       setShowCreateModal(false);
                       setEditingUser(null);
-                      setFormData({ email: '', username: '', role: 'attendant', sendInvite: true, password: '' });
+                      setFormData({ email: '', role: 'attendant', sendInvite: true });
                       setFormErrors({});
                     }}
                     title="Close this window without saving"
