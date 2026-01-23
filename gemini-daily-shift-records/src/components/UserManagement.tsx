@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,7 @@ interface UserManagementProps {
   isDarkMode: boolean;
 }
 
-export default function UserManagement({ isDarkMode }: UserManagementProps): JSX.Element {
+export default function UserManagement({ isDarkMode }: UserManagementProps) {
   const currentUser = useAtomValue(userAtom);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,11 +196,10 @@ export default function UserManagement({ isDarkMode }: UserManagementProps): JSX
 
     setSubmitting(true);
     try {
-      // Update profile in your users table
+      // Update profile in your users table (only role can be updated)
       const { error: profileError } = await supabase
         .from('users')
         .update({
-          username: formData.username,
           role: formData.role
         })
         .eq('id', editingUser.id);
@@ -214,7 +213,6 @@ export default function UserManagement({ isDarkMode }: UserManagementProps): JSX
           editingUser.id,
           {
             user_metadata: {
-              username: formData.username,
               role: formData.role
             }
           }
@@ -475,10 +473,8 @@ export default function UserManagement({ isDarkMode }: UserManagementProps): JSX
                             setEditingUser(user);
                             setFormData({
                               email: user.email,
-                              username: user.username,
                               role: user.role,
-                              sendInvite: false,
-                              password: ''
+                              sendInvite: false
                             });
                           }}
                           title="Edit user details"
@@ -595,42 +591,17 @@ export default function UserManagement({ isDarkMode }: UserManagementProps): JSX
                 </div>
 
                 {!editingUser && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="sendInvite"
-                        checked={formData.sendInvite}
-                        onChange={(e) => setFormData({ ...formData, sendInvite: e.target.checked })}
-                        className="rounded"
-                      />
-                      <label htmlFor="sendInvite" className={cn("text-sm", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                        Send password setup email
-                      </label>
-                    </div>
-
-                    {!formData.sendInvite && (
-                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                        <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
-                          Manual Password
-                        </label>
-                        <Input
-                          type="password"
-                          value={formData.password}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          placeholder="Set password for this user"
-                          className={cn(
-                            "w-full rounded-xl",
-                            isDarkMode
-                              ? "bg-white/10 border-white/20 text-white"
-                              : "bg-white/50 border-gray-300 text-gray-900"
-                          )}
-                        />
-                        <p className={cn("text-xs", isDarkMode ? "text-gray-400" : "text-gray-500")}>
-                          Since no email will be sent, you must provide this password to the user manually.
-                        </p>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="sendInvite"
+                      checked={formData.sendInvite}
+                      onChange={(e) => setFormData({ ...formData, sendInvite: e.target.checked })}
+                      className="rounded"
+                    />
+                    <label htmlFor="sendInvite" className={cn("text-sm", isDarkMode ? "text-gray-300" : "text-gray-700")}>
+                      Send password setup email
+                    </label>
                   </div>
                 )}
 
