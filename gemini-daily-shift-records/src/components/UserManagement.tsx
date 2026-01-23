@@ -191,20 +191,6 @@ export default function UserManagement({ isDarkMode }: UserManagementProps): JSX
     setSubmitting(false);
   };
 
-      if (profileError) throw profileError;
-
-      // Reset form and close modal
-      setFormData({ email: '', role: 'attendant', sendInvite: true });
-      setShowCreateModal(false);
-      fetchUsers(); // Refresh list
-
-    } catch (error: any) {
-      console.error('Error creating user:', error);
-      showNotification(error.message || 'Failed to create user', 'error');
-    }
-    setSubmitting(false);
-  };
-
   const updateUser = async () => {
     if (!editingUser || !validateForm()) return;
 
