@@ -133,6 +133,15 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
   const createUser = async () => {
     if (!validateForm()) return;
 
+    // Debug: Check environment variables
+    console.log('VITE_SUPABASE_SERVICE_ROLE_KEY exists:', !!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY);
+    console.log('supabaseAdmin exists:', !!supabaseAdmin);
+
+    // Debug: Check what currentUser contains
+    console.log('Current user object:', currentUser);
+    console.log('Current user role:', currentUser?.role);
+    console.log('isAdmin result:', isAdmin(currentUser));
+
     // Check admin permissions
     if (!isAdmin(currentUser)) {
       showNotification('Unauthorized: Admin access required', 'error');
@@ -173,6 +182,8 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
           role: formData.role,
           status: 'pending',
           created_at: new Date().toISOString()
+          // username will be set by user during setup
+          // first_name, last_name, gender will be set by user during setup
         });
 
       if (profileError) throw profileError;
@@ -535,9 +546,9 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
 
         {/* Create/Edit User Modal */}
         {(showCreateModal || editingUser) && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm px-4 pt-20">
             <div className={cn(
-              "rounded-2xl shadow-2xl w-full max-w-md p-6 relative border",
+              "rounded-2xl shadow-2xl w-full max-w-md p-6 relative border max-h-[80vh] overflow-y-auto",
               isDarkMode
                 ? "bg-gray-900/95 border-white/20 text-white"
                 : "bg-white/95 border-white/30 text-gray-900"
@@ -554,14 +565,22 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                   <Input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      const newEmail = e.target.value;
+                      setFormData(prev => ({ ...prev, email: newEmail }));
+                      // Clear email error when user starts typing
+                      if (formErrors.email) {
+                        setFormErrors(prev => ({ ...prev, email: '' }));
+                      }
+                    }}
                     disabled={!!editingUser}
+                    placeholder="Enter email address"
                     className={cn(
-                      "w-full rounded-xl",
+                      "w-full rounded-xl transition-colors duration-200",
                       formErrors.email && "border-red-500",
                       isDarkMode
-                        ? "bg-white/10 border-white/20 text-white"
-                        : "bg-white/50 border-gray-300 text-gray-900"
+                        ? "bg-white/10 border-white/20 text-white placeholder-gray-400"
+                        : "bg-white/50 border-gray-300 text-gray-900 placeholder-gray-500"
                     )}
                   />
                   {formErrors.email && (
@@ -573,16 +592,21 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                   <label className={cn("block font-semibold mb-2", isDarkMode ? "text-gray-300" : "text-gray-700")}>
                     Role
                   </label>
-                  <Select value={formData.role} onValueChange={(value: any) => setFormData({ ...formData, role: value })}>
+                  <Select 
+                    value={formData.role} 
+                    onValueChange={(value: any) => setFormData(prev => ({ ...prev, role: value }))}
+                  >
                     <SelectTrigger className={cn(
-                      "w-full rounded-xl",
+                      "w-full rounded-xl transition-colors duration-200",
                       isDarkMode
                         ? "bg-white/10 border-white/20 text-white"
                         : "bg-white/50 border-gray-300 text-gray-900"
                     )}>
                       {formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className={cn(
+                      isDarkMode ? "bg-gray-800 border-white/20" : "bg-white border-gray-300"
+                    )}>
                       <SelectItem value="attendant">Attendant</SelectItem>
                       <SelectItem value="supervisor">Supervisor</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
@@ -596,7 +620,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                       type="checkbox"
                       id="sendInvite"
                       checked={formData.sendInvite}
-                      onChange={(e) => setFormData({ ...formData, sendInvite: e.target.checked })}
+                      onChange={(e) => setFormData(prev => ({ ...prev, sendInvite: e.target.checked }))}
                       className="rounded"
                     />
                     <label htmlFor="sendInvite" className={cn("text-sm", isDarkMode ? "text-gray-300" : "text-gray-700")}>
