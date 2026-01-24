@@ -48,27 +48,65 @@ export default function SetupPassword() {
   useEffect(() => {
     // Check if user is coming from invite link
     const urlParams = new URLSearchParams(window.location.search);
-    const accessToken = urlParams.get('access_token');
-    const refreshToken = urlParams.get('refresh_token');
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
-    if (accessToken && refreshToken) {
+    // Get tokens from either query params or hash params
+    const accessToken = urlParams.get('access_token') || hashParams.get('access_token');
+    const refreshToken = urlParams.get('refresh_token') || hashParams.get('refresh_token');
+    const type = urlParams.get('type') || hashParams.get('type');
+    
+    console.log('URL params:', { 
+      search: window.location.search,
+      hash: window.location.hash,
+      accessToken: accessToken ? `${accessToken.substring(0, 10)}...` : null, 
+      refreshToken: refreshToken ? `${refreshToken.substring(0, 10)}...` : null, 
+      type 
+    });
+    
+    // Validate tokens before attempting to set session
+    if (accessToken && refreshToken && accessToken.length > 10 && refreshToken.length > 10) {
+      console.log('Setting session with valid tokens...');
       // Set the session from URL params
       supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken
       }).then(({ data, error }) => {
         if (error) {
-          setError('Invalid or expired invitation link');
+          console.error('Session error:', error);
+          setError('Invalid or expired invitation link. Please contact your manager for a new invitation.');
         } else if (data.user) {
+          console.log('User from session:', data.user);
           setUserInfo({
             email: data.user.email,
-            username: data.user.user_metadata?.username,
-            role: data.user.user_metadata?.role
+            role: data.user.user_metadata?.role || 'attendant'
           });
+        } else {
+          console.error('No user in session data');
+          setError('Invalid invitation link. Please contact your manager.');
+        }
+      }).catch((err) => {
+        console.error('Session setup failed:', err);
+        setError('Failed to process invitation link. Please try again or contact your manager.');
+      });
+    } else if (accessToken || refreshToken) {
+      // Tokens present but invalid
+      console.log('Invalid tokens detected');
+      setError('Invalid or incomplete invitation link. Please use the complete link from your email or contact your manager for a new invitation.');
+    } else {
+      console.log('No tokens found, checking if user is already logged in...');
+      // Check if user is already logged in (for testing)
+      supabase.auth.getUser().then(({ data, error }) => {
+        if (data.user && !error) {
+          console.log('User already logged in:', data.user);
+          setUserInfo({
+            email: data.user.email,
+            role: data.user.user_metadata?.role || 'attendant'
+          });
+        } else {
+          console.log('No user found, showing error');
+          setError('No invitation link found. Please use the link from your email or contact your manager.');
         }
       });
-    } else {
-      setError('No invitation link found. Please use the link from your email.');
     }
   }, []);
 
@@ -79,7 +117,7 @@ export default function SetupPassword() {
       uppercase: /[A-Z]/.test(password),
       lowercase: /[a-z]/.test(password),
       number: /\d/.test(password),
-      special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+      special: /[!@#$%^&*(),.?":{}|<>\/\-_+=~`\[\]\\';]/.test(password)
     });
   }, [password]);
 
@@ -242,20 +280,37 @@ export default function SetupPassword() {
                   {getRoleIcon(userInfo.role)}
                   <div>
                     <div className={cn("font-semibold", isDarkMode ? "text-white" : "text-gray-900")}>
-                      {userInfo.username}
+                      {userInfo.email}
                     </div>
-                    <div className={cn("text-sm", isDarkMode ? "text-gray-400" : "text-gray-600")}>
-                      {userInfo.email} • {userInfo.role}
+                    <div className={cn("text-sm capitalize", isDarkMode ? "text-gray-400" : "text-gray-600")}>
+                      {userInfo.role} Account Setup
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
+            {!userInfo && !error && (
+              <div className="mb-6 p-4 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center gap-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                <p className="text-blue-600 text-sm">Processing invitation link...</p>
+              </div>
+            )}
+
             {error && (
               <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <p className="text-red-600 text-sm">{error}</p>
+                <div>
+                  <p className="text-red-600 text-sm">{error}</p>
+                  <details className="mt-2">
+                    <summary className="text-xs text-red-500 cursor-pointer">Debug Info</summary>
+                    <div className="text-xs text-red-400 mt-1 font-mono">
+                      <div>URL: {window.location.href}</div>
+                      <div>Search: {window.location.search}</div>
+                      <div>Hash: {window.location.hash}</div>
+                    </div>
+                  </details>
+                </div>
               </div>
             )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +45,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  // Form states
+  // Form states with optimized updates
   const [formData, setFormData] = useState({
     email: '',
     role: 'attendant' as 'attendant' | 'supervisor' | 'manager',
@@ -54,11 +54,61 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  // Memoized validation function
+  const validateForm = useCallback(() => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Invalid email format';
+    }
+
+    // Check if email already exists
+    const emailExists = users.some(user =>
+      user.email?.toLowerCase() === formData.email.toLowerCase() &&
+      (!editingUser || user.id !== editingUser.id)
+    );
+
+    if (emailExists) {
+      errors.email = 'Email already exists';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [formData.email, users, editingUser]);
+
+  // Optimized input handlers
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setFormData(prev => ({ ...prev, email: newEmail }));
+    // Clear email error when user starts typing
+    if (formErrors.email) {
+      setFormErrors(prev => ({ ...prev, email: '' }));
+    }
+  }, [formErrors.email]);
+
+  const handleRoleChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, role: value as 'attendant' | 'supervisor' | 'manager' }));
+  }, []);
+
+  const handleSendInviteChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, sendInvite: e.target.checked }));
+  }, []);
+
+  // Memoized form reset
+  const resetForm = useCallback(() => {
+    setFormData({ email: '', role: 'attendant', sendInvite: true });
+    setFormErrors({});
+    setShowCreateModal(false);
+    setEditingUser(null);
+  }, []);
+
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       // Get users from your users table (profile data)
@@ -105,32 +155,9 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
       showNotification(error.message || 'Failed to fetch users', 'error');
     }
     setLoading(false);
-  };
+  }, []);
 
-  const validateForm = () => {
-    const errors: Record<string, string> = {};
-
-    if (!formData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Invalid email format';
-    }
-
-    // Check if email already exists
-    const emailExists = users.some(user =>
-      user.email?.toLowerCase() === formData.email.toLowerCase() &&
-      (!editingUser || user.id !== editingUser.id)
-    );
-
-    if (emailExists) {
-      errors.email = 'Email already exists';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const createUser = async () => {
+  const createUser = useCallback(async () => {
     if (!validateForm()) return;
 
     // Debug: Check environment variables
@@ -157,12 +184,16 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
     setSubmitting(true);
     try {
       const emailToUse = formData.email.trim();
+      const redirectUrl = `${window.location.origin}/setup-password`;
+      
+      console.log('Creating user with redirect URL:', redirectUrl);
+      console.log('Current window.location.origin:', window.location.origin);
 
       // Create user and send invite
       const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
         emailToUse,
         {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: redirectUrl,
           data: {
             role: formData.role
           }
@@ -191,8 +222,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
       showNotification('User created and invite email sent', 'success');
 
       // Reset form and close modal
-      setFormData({ email: '', role: 'attendant', sendInvite: true });
-      setShowCreateModal(false);
+      resetForm();
       fetchUsers(); // Refresh list
       
     } catch (error: any) {
@@ -200,9 +230,9 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
       showNotification(error.message || 'Failed to create user', 'error');
     }
     setSubmitting(false);
-  };
+  }, [formData, validateForm, currentUser, resetForm, fetchUsers]);
 
-  const updateUser = async () => {
+  const updateUser = useCallback(async () => {
     if (!editingUser || !validateForm()) return;
 
     setSubmitting(true);
@@ -236,8 +266,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
       }
 
       showNotification('User updated successfully', 'success');
-      setEditingUser(null);
-      setFormData({ email: '', role: 'attendant', sendInvite: true });
+      resetForm();
       fetchUsers(); // Refresh list
 
     } catch (error: any) {
@@ -245,7 +274,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
       showNotification(error.message || 'Failed to update user', 'error');
     }
     setSubmitting(false);
-  };
+  }, [editingUser, validateForm, formData.role, resetForm, fetchUsers]);
 
   const suspendUser = async (userId: string) => {
     try {
@@ -338,7 +367,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
       if (!supabaseAdmin) throw new Error('Admin functions not available');
 
       const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${window.location.origin}/`
+        redirectTo: `${window.location.origin}/setup-password`
       });
 
       if (error) throw error;
@@ -363,7 +392,8 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
     }, 4000);
   };
 
-  const getRoleIcon = (role: string) => {
+  // Memoized role icon function
+  const getRoleIcon = useCallback((role: string) => {
     switch (role) {
       case 'manager':
         return <Shield className="w-4 h-4 text-purple-500" />;
@@ -372,9 +402,10 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
       default:
         return <User className="w-4 h-4 text-green-500" />;
     }
-  };
+  }, []);
 
-  const getStatusBadge = (user: User) => {
+  // Memoized status badge function
+  const getStatusBadge = useCallback((user: User) => {
     if (user.status === 'suspended') {
       return <span className="px-2 py-1 rounded-lg text-xs font-semibold bg-red-500/20 text-red-600 border border-red-500/30">Suspended</span>;
     }
@@ -382,7 +413,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
       return <span className="px-2 py-1 rounded-lg text-xs font-semibold bg-yellow-500/20 text-yellow-600 border border-yellow-500/30">Pending</span>;
     }
     return <span className="px-2 py-1 rounded-lg text-xs font-semibold bg-green-500/20 text-green-600 border border-green-500/30">Active</span>;
-  };
+  }, []);
 
   return (
     <Card className={cn(
@@ -546,13 +577,24 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
 
         {/* Create/Edit User Modal */}
         {(showCreateModal || editingUser) && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm px-4 pt-20">
-            <div className={cn(
-              "rounded-2xl shadow-2xl w-full max-w-md p-6 relative border max-h-[80vh] overflow-y-auto",
-              isDarkMode
-                ? "bg-gray-900/95 border-white/20 text-white"
-                : "bg-white/95 border-white/30 text-gray-900"
-            )}>
+          <div 
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm px-4 pt-16"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                resetForm();
+              }
+            }}
+          >
+            <div 
+              className={cn(
+                "rounded-2xl shadow-2xl w-full max-w-md p-6 relative border max-h-[85vh] overflow-y-auto",
+                "animate-in fade-in-0 zoom-in-95 duration-200",
+                isDarkMode
+                  ? "bg-gray-900/95 border-white/20 text-white"
+                  : "bg-white/95 border-white/30 text-gray-900"
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
               <h3 className="font-bold text-2xl mb-4">
                 {editingUser ? 'Edit User' : 'Create New User'}
               </h3>
@@ -565,16 +607,10 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                   <Input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => {
-                      const newEmail = e.target.value;
-                      setFormData(prev => ({ ...prev, email: newEmail }));
-                      // Clear email error when user starts typing
-                      if (formErrors.email) {
-                        setFormErrors(prev => ({ ...prev, email: '' }));
-                      }
-                    }}
+                    onChange={handleEmailChange}
                     disabled={!!editingUser}
                     placeholder="Enter email address"
+                    autoComplete="email"
                     className={cn(
                       "w-full rounded-xl transition-colors duration-200",
                       formErrors.email && "border-red-500",
@@ -594,7 +630,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                   </label>
                   <Select 
                     value={formData.role} 
-                    onValueChange={(value: any) => setFormData(prev => ({ ...prev, role: value }))}
+                    onValueChange={handleRoleChange}
                   >
                     <SelectTrigger className={cn(
                       "w-full rounded-xl transition-colors duration-200",
@@ -620,7 +656,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
                       type="checkbox"
                       id="sendInvite"
                       checked={formData.sendInvite}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sendInvite: e.target.checked }))}
+                      onChange={handleSendInviteChange}
                       className="rounded"
                     />
                     <label htmlFor="sendInvite" className={cn("text-sm", isDarkMode ? "text-gray-300" : "text-gray-700")}>
@@ -631,12 +667,7 @@ export default function UserManagement({ isDarkMode }: UserManagementProps) {
 
                 <div className="flex gap-3 pt-4">
                   <Button
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setEditingUser(null);
-                      setFormData({ email: '', role: 'attendant', sendInvite: true });
-                      setFormErrors({});
-                    }}
+                    onClick={resetForm}
                     title="Close this window without saving"
                     className={cn(
                       "flex-1 rounded-xl py-2 font-semibold",
