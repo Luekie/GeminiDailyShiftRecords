@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useTheme } from '../contexts/ThemeContext';
 import { GlobalBackground } from '../components/GlobalBackground';
